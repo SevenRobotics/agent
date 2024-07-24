@@ -2,14 +2,12 @@
 package main
 
 import (
-	"fmt"
 	// "io"
 	// "os"
 	//
 	// "github.com/alecthomas/kong"
 	//
 	"go_agent/cmd/code-generator/rostoproto"
-	"go_agent/cmd/code-generator/rostoproto/util"
 )
 
 var cli struct {
@@ -34,35 +32,38 @@ var cli struct {
 // 	return message.ImportMessage(cli.Path, cli.GoPackage, cli.RosPackage, output)
 // }
 
+var g = rostoproto.NewGen()
+
 func main() {
-	// err := run(os.Args[1:], os.Stdout)
+	rostoproto.Run(g)
+	// // err := run(os.Args[1:], os.Stdout)
+	// // if err != nil {
+	// // 	fmt.Fprintf(os.Stderr, "ERR: %s\n", err)
+	// // 	os.Exit(1)
+	// // }
+	// packages, err := util.FindRosPackages()
 	// if err != nil {
-	// 	fmt.Fprintf(os.Stderr, "ERR: %s\n", err)
-	// 	os.Exit(1)
+	// 	fmt.Println("Error finding ros packages")
 	// }
-	packages, err := util.FindRosPackages()
-	if err != nil {
-		fmt.Println("Error finding ros packages")
-	}
-
-	p := rostoproto.NewParser()
-	pkgs, err := p.LoadPackages(packages...)
-
-	for _, pkg := range pkgs {
-		fmt.Printf("Package Name: %v Path: %v", pkg.Name, pkg.Dir)
-		for _, msgDef := range pkg.MessageDefs {
-			fmt.Printf("Message PackageName: %v\n", msgDef.RosPkgName)
-			fmt.Printf("Message Name: %v\n", msgDef.Name)
-			for i, field := range msgDef.Fields {
-				fmt.Printf("Field Definition %v : %v\n", i, field)
-			}
-
-			for i, def := range msgDef.Definitions {
-				fmt.Printf("Message Definition %v: %v\n", i, def)
-			}
-
-			fmt.Printf("Message DefinitionStr: %v\n", msgDef.DefinitionsStr)
-		}
-	}
+	//
+	// p := rostoproto.NewParser()
+	// pkgs, err := p.LoadPackages(packages...)
+	//
+	// for _, pkg := range pkgs {
+	// 	fmt.Printf("Package Name: %v Path: %v", pkg.Name, pkg.Dir)
+	// 	for _, msgDef := range pkg.MessageDefs {
+	// 		fmt.Printf("Message PackageName: %v\n", msgDef.RosPkgName)
+	// 		fmt.Printf("Message Name: %v\n", msgDef.Name)
+	// 		for i, field := range msgDef.Fields {
+	// 			fmt.Printf("Field Definition %v : %v\n", i, field)
+	// 		}
+	//
+	// 		for i, def := range msgDef.Definitions {
+	// 			fmt.Printf("Message Definition %v: %v\n", i, def)
+	// 		}
+	//
+	// 		fmt.Printf("Message DefinitionStr: %v\n", msgDef.DefinitionsStr)
+	// 	}
+	// }
 
 }

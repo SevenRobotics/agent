@@ -5,3 +5,5 @@
 // build channels between relevant ros subscribers & rmq publishers
 // publish init log
 // keep checking for any new topics & ensure all subscribers & rmq publishers are healthy
+
+package cmd

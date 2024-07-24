@@ -66,6 +66,7 @@ type MessageDefinition struct {
 	Definitions    []Definition
 	DefinitionsStr string
 	Imports        map[string]struct{}
+	Type           Type
 }
 
 func parseField(rosPkgName string, res *MessageDefinition, typ string, name string) {
@@ -196,5 +197,6 @@ func ParseMessageDefinition(rosPkgName string, name string, content string) (*Me
 	}()
 
 	//Take care of imports here
+	res.Type = Type{Name: Name{Name: name}, Kind: RosMsgType}
 	return res, nil
 }

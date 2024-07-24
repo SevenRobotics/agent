@@ -1,4 +1,4 @@
-package generator
+package rostoproto
 
 // The package name, path, and dir are required to be non-empty.
 type SimpleTarget struct {
@@ -14,6 +14,9 @@ type SimpleTarget struct {
 
 	// HeaderComment is emitted at the top of every output file. Optional.
 	HeaderComment []byte
+
+	// GeneratorsFunc will be called to implement Target.Generators. Optional.
+	GeneratorsFunc func(*Context) []Generator
 }
 
 func (st SimpleTarget) Name() string { return st.PkgName }
@@ -22,3 +25,14 @@ func (st SimpleTarget) Dir() string  { return st.PkgDir }
 func (st SimpleTarget) Header(filename string) []byte {
 	return st.HeaderComment
 }
+
+func (st SimpleTarget) Generators(c *Context) []Generator {
+	if st.GeneratorsFunc != nil {
+		return st.GeneratorsFunc(c)
+	}
+	return nil
+}
+
+var (
+	_ = Target(SimpleTarget{})
+)

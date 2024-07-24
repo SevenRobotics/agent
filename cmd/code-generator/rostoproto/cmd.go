@@ -1,15 +1,19 @@
 package rostoproto
 
 import (
+	"fmt"
+	"go_agent/cmd/code-generator/rostoproto/util"
 	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 
 	flag "github.com/spf13/pflag"
-
-	"k8s.io/gengo/v2/parser"
 )
 
-type Generator struct {
+type GeneratorUtil struct {
 	RosMsgFiles   string
 	RosPackages   string
 	OutputDir     string
@@ -20,27 +24,23 @@ type Generator struct {
 	KeepGogoproto bool
 }
 
-func NewGen() *Generator {
+func NewGen() *GeneratorUtil {
 	defaultOutputDir := "../../../telemetry/protobuf/"
-	return &Generator{
+	return &GeneratorUtil{
 		OutputDir:   defaultOutputDir,
 		RosPackages: "",
 	}
 }
 
-func (g *Generator) BindFlags(flag *flag.FlagSet) {
+func (g *GeneratorUtil) BindFlags(flag *flag.FlagSet) {
 	flag.StringVarP(&g.RosMsgFiles, "ros-msg-file", "m", "", "Ros msg file to parse and generate proto for")
 	flag.StringVarP(&g.RosPackages, "ros-package", "p", g.RosPackages, "comma separated list of ros packages to get msg files from. Directories prefixed with '-' are not generated, directories prefixed with '+' only create types with explicit IDL instructions")
 	flag.StringVar(&g.OutputDir, "output-dir", g.OutputDir, "the default output dir for generated proto files")
 	flag.StringSliceVar(&g.ProtoImport, "proto-import", g.ProtoImport, "A search path for imported protobufs")
-	flag.StringVar(&g.Conditional, "conditional", g.Conditional, "An optional golang build tag condition to add to the generated Go Code")
-	flag.BoolVar(&g.Clean, "clean", g.Clean, "If true, remove all generated files for the specified Packages.")
-	flag.BoolVar(&g.OnlyIDL, "only-idl", g.OnlyIDL, "If true, only generate the IDL for each package.")
-	flag.BoolVar(&g.KeepGogoproto, "keep-gogoproto", g.KeepGogoproto, "If true, the generated IDL will contain gogoprotobuf extensions which are normally removed")
 }
 
-func Run(g *Generator) {
-	p := parser.NewWithOptions(parser.Options{BuildTags: []string{"proto"}})
+func Run(g *GeneratorUtil) {
+	p := NewWithOptions(Options{BuildTags: []string{"proto"}})
 	var allPackages []string
 	var allMsgs []string
 	if len(g.RosMsgFiles) != 0 {
@@ -50,6 +50,18 @@ func Run(g *Generator) {
 	if len(g.RosPackages) != 0 {
 		allPackages = append(allPackages, strings.Split(g.RosPackages, ",")...)
 	}
+	rospkgs, err := util.FindRosPackages()
+	if err != nil {
+		log.Fatal("Could not find ros packages %v", err)
+	}
+
+	if len(rospkgs) > 0 {
+		allPackages = append(allPackages, rospkgs...)
+	}
+
+	//sort and remove any duplicates
+	slices.Sort(allPackages)
+	slices.Compact(allPackages)
 
 	if len(allPackages) == 0 && len(allMsgs) == 0 {
 		log.Fatalf("No Ros packages or Ros msg files received. Exiting")
@@ -68,6 +80,13 @@ func Run(g *Generator) {
 
 	for _, d := range allPackages {
 		modifier := modifier{allTypes: true, output: true}
+
+		// remove packages which do not have msg types
+		if _, err := os.Stat(d + "/msg"); os.IsNotExist(err) {
+			modifier.output = false
+			inputPackageModifiers[d] = modifier
+			continue
+		}
 
 		switch {
 		case strings.HasPrefix(d, "-"):
@@ -101,4 +120,57 @@ func Run(g *Generator) {
 		}
 	}
 
+	loadablePackages := make([]string, 0, len(allPackages))
+
+	for _, p := range allPackages {
+		if o, ok := inputPackageModifiers[p]; ok {
+			if !o.output {
+				continue
+			}
+		}
+		loadablePackages = append(loadablePackages, p)
+	}
+
+	if err := p.LoadPackages(loadablePackages...); err != nil {
+		log.Fatalf("Failed to load packages %v", err)
+	}
+
+	c, err := NewContext(
+		p,
+		NameSystems{
+			"public": NewNamer(3),
+		},
+	)
+
+	if err != nil {
+		log.Fatalf("Failed creating a new context %v", err)
+	}
+
+	c.FileTypes["protoidl"] = NewProtoFile()
+
+	protoBufNames := NewProtobufNamer()
+	outputPackages := []Target{}
+
+	for _, input := range c.Inputs {
+		pkg := c.Universe[filepath.Base(input)]
+		if pkg == nil {
+			fmt.Printf("pkg for input %v is empty", input)
+		}
+		_, b, _, _ := runtime.Caller(0)
+		basepath := filepath.Dir(b)
+		dir := filepath.Join(basepath, "../../../telemetry/protobuf/", pkg.Name)
+		for _, msg := range pkg.MessageDefs[pkg.Name] {
+			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
+			protoBufNames.Add(protopkg)
+			outputPackages = append(outputPackages, protopkg)
+		}
+	}
+
+	c.Namers["proto"] = protoBufNames
+
+	if err := c.ExecuteTargets(outputPackages); err != nil {
+		log.Fatalf("Failed executing local generator: %v", err)
+	}
+
+	return
 }

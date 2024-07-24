@@ -36,10 +36,11 @@ func ParseFullyQualifiedName(n string) Name {
 }
 
 const (
-	Builtin   string = "Builtin"
-	Array     string = "Array"
-	TypeParam string = "TypeParam"
-	Protobuf  string = "Protobuf"
+	Builtin    string = "Builtin"
+	Array      string = "Array"
+	TypeParam  string = "TypeParam"
+	Protobuf   string = "Protobuf"
+	RosMsgType string = "RosMsg"
 )
 
 type Package struct {
@@ -52,7 +53,7 @@ type Package struct {
 	//Short name of this package eg: sensor_msgs
 	Name string
 
-	MessageDefs []*MessageDefinition // can add other types of defs as we go along
+	MessageDefs map[string]map[string]*MessageDefinition // can add other types of defs as we go along
 	//Types within this package, indexed by their name. Not sure if we need it, leaving it here
 	// since it might be needed later on while generating subscribers & publishers
 	Types map[string]*Type
@@ -64,6 +65,23 @@ type Package struct {
 func (p *Package) HasImport(packageName string) bool {
 	_, has := p.Imports[packageName]
 	return has
+}
+
+func (p *Package) Type(typeName string) *Type {
+	if t, ok := p.Types[typeName]; ok {
+		return t
+	}
+
+	if p.Path == "" {
+		if t, ok := Builtins.Types[typeName]; ok {
+			p.Types[typeName] = t
+			return t
+		}
+	}
+
+	t := &Type{Name: Name{Name: typeName, Package: p.Path}}
+	p.Types[typeName] = t
+	return t
 }
 
 // universe is a map of all packages indexed by the package name
@@ -89,6 +107,10 @@ func (u Universe) AddImports(packagePath string, importPaths ...string) {
 	for _, i := range importPaths {
 		p.Imports[i] = u.Package(i)
 	}
+}
+
+func (u Universe) Type(typeName Name) *Type {
+	return u.Package(typeName.Name).Type(typeName.Name)
 }
 
 type Type struct {
