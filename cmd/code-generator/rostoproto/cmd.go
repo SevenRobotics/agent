@@ -5,9 +5,11 @@ import (
 	"go_agent/cmd/code-generator/rostoproto/util"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"sort"
 	"strings"
 
 	flag "github.com/spf13/pflag"
@@ -17,6 +19,7 @@ type GeneratorUtil struct {
 	RosMsgFiles   string
 	RosPackages   string
 	OutputDir     string
+	ProtoDir      string
 	ProtoImport   []string
 	Conditional   string
 	Clean         bool
@@ -25,9 +28,11 @@ type GeneratorUtil struct {
 }
 
 func NewGen() *GeneratorUtil {
-	defaultOutputDir := "../../../telemetry/protobuf/"
+	defaultOutputDir := "../../../telemetry/genproto/ros/"
+	relativeProtoDir := "../../../telemetry/protobuf/ros/"
 	return &GeneratorUtil{
 		OutputDir:   defaultOutputDir,
+		ProtoDir:    relativeProtoDir,
 		RosPackages: "",
 	}
 }
@@ -52,7 +57,7 @@ func Run(g *GeneratorUtil) {
 	}
 	rospkgs, err := util.FindRosPackages()
 	if err != nil {
-		log.Fatal("Could not find ros packages %v", err)
+		log.Fatalf("Could not find ros packages %v", err)
 	}
 
 	if len(rospkgs) > 0 {
@@ -158,7 +163,7 @@ func Run(g *GeneratorUtil) {
 		}
 		_, b, _, _ := runtime.Caller(0)
 		basepath := filepath.Dir(b)
-		dir := filepath.Join(basepath, "../../../telemetry/protobuf/", pkg.Name)
+		dir := filepath.Join(basepath, g.ProtoDir, pkg.Name)
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
 			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
 			protoBufNames.Add(protopkg)
@@ -168,9 +173,160 @@ func Run(g *GeneratorUtil) {
 
 	c.Namers["proto"] = protoBufNames
 
+	deps := deps(c, protoBufNames.packages)
+
+	order, err := importOrder(deps)
+
+	if err != nil {
+		log.Fatalf("Failed to order packages by imports: %v", err)
+	}
+
+	topologicalPos := map[string]int{}
+
+	for i, p := range order {
+		topologicalPos[p] = i
+	}
+
+	sort.Sort(positionOrder{topologicalPos, protoBufNames.packages})
+	var sortedOutputPackages []Target
+
+	for _, protoPkg := range protoBufNames.packages {
+		sortedOutputPackages = append(sortedOutputPackages, protoPkg)
+	}
+
 	if err := c.ExecuteTargets(outputPackages); err != nil {
 		log.Fatalf("Failed executing local generator: %v", err)
 	}
 
+	if _, err := exec.LookPath("protoc"); err != nil {
+		log.Fatalf("unable to find protoc: %v", err)
+	}
+
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(b)
+	search_args := []string{}
+	for _, outputPackage := range outputPackages {
+		p := outputPackage.(*ProtobufPackage)
+
+		path := filepath.Join(basepath, g.ProtoDir, p.ImportPath())
+		tmp := strings.Split(path, "/")
+		includePath := strings.Join(tmp[:len(tmp)-2], "/")
+		search_args = append(search_args, fmt.Sprintf("--proto_path=%s", includePath))
+		outputPath := filepath.Join(basepath, g.OutputDir, p.OutputPath())
+		tmp = strings.Split(outputPath, "/")
+		outDir := strings.Join(tmp[:len(tmp)-1], "/")
+
+		if _, err := os.Stat(outDir); os.IsNotExist(err) {
+			os.MkdirAll(outDir, 0755)
+		}
+
+		out_args := []string{}
+		out_args = append(out_args, path)
+		out_args = append(out_args, fmt.Sprintf("--go_out=%s", outDir))
+		// out_args = append(out_args, "--go_opt=paths=source_relative")
+		args := []string{}
+		args = append(args, out_args...)
+		args = append(args, search_args...)
+		cmd := exec.Command("protoc", args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Println(strings.Join(cmd.Args, " "))
+			log.Println(string(out))
+			log.Fatalf("Unable to run protoc on %s:%v", p.Name(), err)
+		}
+	}
+
 	return
+}
+
+// a from -> to dependency relationship in an import graph
+type edge struct {
+	from string
+	to   string
+}
+
+func deps(c *Context, pkgs []*ProtobufPackage) map[string][]string {
+	ret := map[string][]string{}
+	for _, p := range pkgs {
+		pkg, ok := c.Universe[p.Path()]
+		if !ok {
+			log.Fatalf("unrecognized package %s", p.Path())
+		}
+
+		for _, d := range pkg.Imports {
+			ret[p.Path()] = append(ret[p.Path()], d.Path)
+		}
+	}
+
+	return ret
+}
+
+func removeEdgesFrom(node string, graph map[edge]struct{}) {
+	for edge := range graph {
+		if edge.from == node {
+			delete(graph, edge)
+		}
+	}
+}
+
+func importOrder(deps map[string][]string) ([]string, error) {
+	var remainingNodes = map[string]struct{}{}
+	var graph = map[edge]struct{}{}
+	for to, froms := range deps {
+		remainingNodes[to] = struct{}{}
+		for _, from := range froms {
+			remainingNodes[from] = struct{}{}
+			graph[edge{from: from, to: to}] = struct{}{}
+		}
+	}
+
+	sorted := findAndRemoveNodesWithoutDependencies(remainingNodes, graph)
+	for i := 0; i < len(sorted); i++ {
+		node := sorted[i]
+		removeEdgesFrom(node, graph)
+		sorted = append(sorted, findAndRemoveNodesWithoutDependencies(remainingNodes, graph)...)
+	}
+	if len(remainingNodes) > 0 {
+		return nil, fmt.Errorf("cycle: remaining nodes: %#v, remaining edges: %#v", remainingNodes, graph)
+	}
+	return sorted, nil
+}
+
+func findAndRemoveNodesWithoutDependencies(nodes map[string]struct{}, graph map[edge]struct{}) []string {
+	roots := []string{}
+
+	for node := range nodes {
+		incoming := false
+
+		for edge := range graph {
+			if edge.to == node {
+				incoming = true
+				break
+			}
+		}
+
+		if !incoming {
+			delete(nodes, node)
+			roots = append(roots, node)
+		}
+	}
+	sort.Strings(roots)
+	return roots
+}
+
+type positionOrder struct {
+	pos      map[string]int
+	elements []*ProtobufPackage
+}
+
+func (o positionOrder) Len() int {
+	return len(o.elements)
+}
+
+func (o positionOrder) Less(i, j int) bool {
+	return o.pos[o.elements[i].Path()] < o.pos[o.elements[j].Path()]
+}
+
+func (o positionOrder) Swap(i, j int) {
+	o.elements[i], o.elements[j] = o.elements[j], o.elements[i]
 }

@@ -25,6 +25,14 @@ type NameStrategy struct {
 	Names
 }
 
+type ImportTracker interface {
+	AddType(*Type)
+	AddSymbol(Name)
+	LocalNameOf(packagePath string) string
+	PathOf(localName string) (string, bool)
+	ImportLines() []string
+}
+
 // helper function which returns a namer that outputs camelcase names
 func NewNamer(prependPackageNames int, ignoreWords ...string) *NameStrategy {
 	n := &NameStrategy{

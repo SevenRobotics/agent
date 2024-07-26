@@ -134,6 +134,14 @@ func (c *Context) ExecuteTarget(target Target) error {
 		pack := c.Universe[target.Path()]
 		msgMap := pack.MessageDefs[target.Path()]
 		if msgDef, ok := msgMap[target.Name()]; ok {
+			log.Printf("Message name: %v", msgDef.Name.Name)
+			for k := range msgDef.Imports {
+				log.Printf("Imports %v", k)
+			}
+			for i, field := range msgDef.Fields {
+				log.Printf("Field %d : %v", i, field)
+			}
+			log.Printf("")
 			if err := genContext.executeBody(&f.Body, g, &msgDef.Type); err != nil {
 				return err
 			}

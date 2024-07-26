@@ -1,6 +1,7 @@
 package rostoproto
 
 import (
+	"fmt"
 	"path/filepath"
 )
 
@@ -23,7 +24,7 @@ type ProtobufPackage struct {
 	StructTags map[string]map[string]string
 
 	// An import tracker for this package
-	// Imports *ImportTracker
+	Imports *ImportTracker
 }
 
 func newProtobufPackage(packagePath, packageDir, packageName string, generateAll bool) *ProtobufPackage {
@@ -49,7 +50,11 @@ func (p *ProtobufPackage) ProtoTypeName() Name {
 }
 
 func (p *ProtobufPackage) ImportPath() string {
-	return filepath.Join(p.Path(), "generated.proto")
+	return filepath.Join(p.Path(), fmt.Sprintf("%s.proto", p.Name()))
+}
+
+func (p *ProtobufPackage) OutputPath() string {
+	return filepath.Join(p.Path(), fmt.Sprintf("%s.pb.go", p.Name()))
 }
 
 func (p *ProtobufPackage) generatorsFunc(c *Context) []Generator {
@@ -62,6 +67,7 @@ func (p *ProtobufPackage) generatorsFunc(c *Context) []Generator {
 		localPackage:    Name{Package: p.Name(), Path: p.Path()},
 		localRosPackage: Name{Package: p.Path(), Name: p.RosPackageName()},
 		generateAll:     p.GenerateAll,
+		// imports:         *p.Imports,
 	})
 	// log.Printf("Returning generator for package %v with path %v and ros package name %v\n",
 	// 	p.Name(), p.Path(), p.RosPackageName())

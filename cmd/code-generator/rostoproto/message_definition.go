@@ -82,9 +82,19 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 	m := regexp.MustCompile(`^(.+?)(\[.*?\])$`).FindStringSubmatch(typ)
 	if m != nil {
 		f.TypeArray = true
-		f.Type = Type{Name: Name{Name: m[1]}, Kind: Builtin}
+		f.Type = Type{Name: Name{Name: m[1]}}
+		if _, ok := Builtins.Types[f.Type.Name.Name]; !ok {
+			f.Type.Kind = RosMsgType
+		} else {
+			f.Type.Kind = Builtin
+		}
 	} else {
-		f.Type = Type{Name: Name{Name: typ}, Kind: Builtin}
+		f.Type = Type{Name: Name{Name: typ}}
+		if _, ok := Builtins.Types[f.Type.Name.Name]; !ok {
+			f.Type.Kind = RosMsgType
+		} else {
+			f.Type.Kind = Builtin
+		}
 	}
 
 	//check if this is a package import field
@@ -103,21 +113,30 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 			"String", "Time", "UInt8MultiArray", "UInt8", "UInt16MultiArray", "UInt16",
 			"UInt32MultiArray", "UInt32", "UInt64MultiArray", "UInt64":
 			return Name{Name: "std_msgs"}, Type{Name: Name{Name: parts[0]}}
-		case "bool", "int8", "uint8", "int16", "uint16",
-			"int32", "uint32", "int64", "uint64", "string":
+
+		case "bool", "string":
+			return Name{}, f.Type
+
+		case "int8", "int16", "int32":
+			return Name{}, *Builtins.Types["int32"]
+
+		case "uint8", "uint16", "uint32":
+			return Name{}, *Builtins.Types["uint32"]
+
+		case "int64":
+			return Name{}, f.Type
+
+		case "uint64":
 			return Name{}, f.Type
 
 		case "float32", "float64":
 			return Name{}, *Builtins.Types["float"]
 
 		case "time", "duration":
-			return Name{Name: "time"}, Type{Name: Name{Name: firstCharToUpper(f.Type.Name.Name)}}
+			return Name{Name: "std_msgs"}, Type{Name: Name{Name: firstCharToUpper(f.Type.Name.Name)}, Kind: RosMsgType}
 
-		case "byte":
-			return Name{}, *Builtins.Types["int8"]
-
-		case "char":
-			return Name{}, *Builtins.Types["uint8"]
+		case "byte", "char":
+			return Name{}, *Builtins.Types["uint32"]
 		}
 
 		return Name{}, f.Type
@@ -196,6 +215,16 @@ func ParseMessageDefinition(rosPkgName string, name string, content string) (*Me
 		return strings.Join(tmp, ",")
 	}()
 
+	res.Imports = map[string]struct{}{}
+
+	for _, f := range res.Fields {
+		switch f.TypePkg.Name {
+		case "":
+			//do nothing not an import field
+		default:
+			res.Imports[f.TypePkg.Name+"/"+f.Type.Name.Name] = struct{}{}
+		}
+	}
 	//Take care of imports here
 	res.Type = Type{Name: Name{Name: name}, Kind: RosMsgType}
 	return res, nil

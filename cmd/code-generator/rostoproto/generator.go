@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"path/filepath"
+	"slices"
+	"strings"
 )
 
 var (
@@ -14,7 +17,7 @@ type genProtoIDL struct {
 	RosMsgGenerator
 	localPackage    Name
 	localRosPackage Name
-	// imports         namer.ImportTracker
+	imports         ImportTracker
 
 	generateAll    bool
 	omitFieldTypes map[string]struct{}
@@ -22,7 +25,8 @@ type genProtoIDL struct {
 
 func (g *genProtoIDL) PackageVars(c *Context) []string {
 	return []string{
-		fmt.Sprintf("option go_package=\"%q\";", g.localRosPackage),
+		fmt.Sprintf("package %s;\n", g.localRosPackage),
+		fmt.Sprintf("option go_package=\"ros/%q\";", g.localRosPackage),
 	}
 }
 
@@ -81,6 +85,13 @@ func (b bodyGen) doRosMsgType(sw *SnippetWriter) error {
 	if alias == nil {
 		alias = b.t
 	}
+	imports, err := getImports(b.locator, alias, b.localPackage)
+	slices.Sort(imports)
+	imports = slices.Compact(imports)
+	if err != nil {
+		return fmt.Errorf("Failed to get imports for %v: %v", b.t, err)
+	}
+
 	if fields == nil {
 		memberFields, err := memberToFields(b.locator, alias, b.localPackage)
 		if err != nil {
@@ -90,14 +101,24 @@ func (b bodyGen) doRosMsgType(sw *SnippetWriter) error {
 	}
 
 	out := sw.Out()
-	sw.Do(`message $.Name.Name$ 
-  {`, b.t)
+	for _, im := range imports {
+		p := filepath.Base(im)
+
+		if strings.ToLower(p) == strings.ToLower(b.t.Name.Name) {
+			continue // avoid self importing
+		}
+		fmt.Fprintf(out, "import \"%s.proto\";\n", im)
+	}
+	fmt.Fprintf(out, "\n\n")
+	sw.Do(`message $.Name.Name$`, b.t)
+	fmt.Fprintf(out, "\n{\n")
 	for i, field := range fields {
 		fmt.Fprintf(out, " ")
 
 		if field.Repeated {
 			fmt.Fprintf(out, "repeated ")
 		}
+
 		sw.Do(`$.Type|local$ $.Name$ = $.Tag$`, field)
 		fmt.Fprintf(out, ";\n")
 		if i != len(fields)-1 {
@@ -124,8 +145,8 @@ type ProtobufLocator interface {
 }
 
 type protobufLocator struct {
-	namer ProtobufFromGoNamer
-	// tracker  namer.ImportTracker
+	namer    ProtobufFromGoNamer
+	tracker  ImportTracker
 	universe Universe
 
 	localRosPackage string
@@ -229,6 +250,24 @@ func memberTypeToProtobufField(locator ProtobufLocator, field *protoField, t *Ty
 	}
 	return err
 }
+func getImports(locator ProtobufLocator, t *Type, localPackage Name) ([]string, error) {
+	imports := []string{}
+	msgDef, err := locator.GetMessageDef(localPackage, t.String())
+
+	if err != nil {
+		return imports, err
+	}
+
+	for _, f := range msgDef.Fields {
+		if f.TypePkg.Name != "" {
+			imports = append(imports, fmt.Sprintf("%s/%s", f.TypePkg.Name, f.Type.Name))
+		} else if !f.Type.isBuiltin() {
+			log.Printf("Not a builtin type %s and its package is %s", f.Type.Name.Name, f.Type.Name.Package)
+			imports = append(imports, fmt.Sprintf("%s/%s", msgDef.RosPkgName.Name, f.Type.Name.Name))
+		}
+	}
+	return imports, nil
+}
 
 func memberToFields(locator ProtobufLocator, t *Type, localPackage Name) ([]protoField, error) {
 	fields := []protoField{}
@@ -238,6 +277,9 @@ func memberToFields(locator ProtobufLocator, t *Type, localPackage Name) ([]prot
 	}
 
 	for i, f := range msgDef.Fields {
+		if f.TypePkg.Name != "" {
+			continue // this is an import statement
+		}
 		field := protoField{
 			LocalPackage: localPackage,
 			Tag:          -1,
@@ -257,7 +299,7 @@ func memberToFields(locator ProtobufLocator, t *Type, localPackage Name) ([]prot
 			field.Repeated = true
 		}
 
-		field.Tag = i
+		field.Tag = i + 1
 		fields = append(fields, field)
 	}
 
@@ -270,7 +312,8 @@ func assembleProtoFile(w io.Writer, f *File) {
 	fmt.Fprintf(w, "syntax = \"proto3\";\n\n")
 
 	if len(f.PackageName) != 0 {
-		fmt.Fprintf(w, "option go_package = \"%s\";\n\n", f.PackagePath)
+		fmt.Fprintf(w, "package %s;\n", f.PackagePath)
+		fmt.Fprintf(w, "option go_package = \"ros/%s\";\n\n", f.PackagePath)
 	}
 	w.Write(f.Body.Bytes())
 }

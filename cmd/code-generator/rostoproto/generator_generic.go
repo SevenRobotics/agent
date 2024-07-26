@@ -48,6 +48,7 @@ type Context struct {
 	Inputs    []string //user specified packages
 	FileTypes map[string]FileType
 	parser    *Parser
+	Order     []*Type
 }
 
 // Generator is the contract for anything that wants to do auto-generation.
