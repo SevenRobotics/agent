@@ -168,6 +168,10 @@ func (p protobufLocator) GetMessageDef(name Name, msgName string) (*MessageDefin
 	if t, ok := p.universe[name.Path]; ok {
 		if msg, ok := t.MessageDefs[name.Path]; ok {
 			ret := msg[msgName]
+			log.Printf("Message definiton: %s\n", msgName)
+			for i, def := range ret.Definitions {
+				log.Printf("Def %d: %v\n", i, def)
+			}
 			return ret, nil
 		}
 	}
@@ -262,7 +266,7 @@ func getImports(locator ProtobufLocator, t *Type, localPackage Name) ([]string, 
 		if f.TypePkg.Name != "" {
 			imports = append(imports, fmt.Sprintf("%s/%s", f.TypePkg.Name, f.Type.Name))
 		} else if !f.Type.isBuiltin() {
-			log.Printf("Not a builtin type %s and its package is %s", f.Type.Name.Name, f.Type.Name.Package)
+			log.Printf("Not a builtin type %s and its package is %s", f.Type.Name.Name, msgDef.RosPkgName.Name)
 			imports = append(imports, fmt.Sprintf("%s/%s", msgDef.RosPkgName.Name, f.Type.Name.Name))
 		}
 	}

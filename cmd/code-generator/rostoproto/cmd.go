@@ -2,6 +2,8 @@ package rostoproto
 
 import (
 	"fmt"
+	flag "github.com/spf13/pflag"
+	"go_agent/cmd/code-generator/rostogo"
 	"go_agent/cmd/code-generator/rostoproto/util"
 	"log"
 	"os"
@@ -11,8 +13,6 @@ import (
 	"slices"
 	"sort"
 	"strings"
-
-	flag "github.com/spf13/pflag"
 )
 
 type GeneratorUtil struct {
@@ -20,6 +20,7 @@ type GeneratorUtil struct {
 	RosPackages   string
 	OutputDir     string
 	ProtoDir      string
+	GoDir         string
 	ProtoImport   []string
 	Conditional   string
 	Clean         bool
@@ -30,9 +31,11 @@ type GeneratorUtil struct {
 func NewGen() *GeneratorUtil {
 	defaultOutputDir := "../../../telemetry/genproto/ros/"
 	relativeProtoDir := "../../../telemetry/protobuf/ros/"
+	goOutputDir := "../../../telemetry/gengo/ros/"
 	return &GeneratorUtil{
 		OutputDir:   defaultOutputDir,
 		ProtoDir:    relativeProtoDir,
+		GoDir:       goOutputDir,
 		RosPackages: "",
 	}
 }
@@ -135,6 +138,7 @@ func Run(g *GeneratorUtil) {
 		}
 		loadablePackages = append(loadablePackages, p)
 	}
+	// first lets create go message types for use with goroslib subscribers
 
 	if err := p.LoadPackages(loadablePackages...); err != nil {
 		log.Fatalf("Failed to load packages %v", err)
@@ -164,6 +168,11 @@ func Run(g *GeneratorUtil) {
 		_, b, _, _ := runtime.Caller(0)
 		basepath := filepath.Dir(b)
 		dir := filepath.Join(basepath, g.ProtoDir, pkg.Name)
+		goDir := filepath.Join(basepath, g.GoDir, pkg.Name)
+		err := rostogo.ImportPackage(input, goDir)
+		if err != nil {
+			log.Fatalf("Failed to import ros package %s: %v", pkg.Name, err)
+		}
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
 			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
 			protoBufNames.Add(protopkg)
@@ -212,7 +221,7 @@ func Run(g *GeneratorUtil) {
 		tmp := strings.Split(path, "/")
 		includePath := strings.Join(tmp[:len(tmp)-2], "/")
 		search_args = append(search_args, fmt.Sprintf("--proto_path=%s", includePath))
-		outputPath := filepath.Join(basepath, g.OutputDir, p.OutputPath())
+		outputPath := filepath.Join(basepath, g.OutputDir)
 		tmp = strings.Split(outputPath, "/")
 		outDir := strings.Join(tmp[:len(tmp)-1], "/")
 
