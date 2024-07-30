@@ -105,12 +105,11 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 		}
 
 		switch f.Type.Name.Name {
-		case "Bool", "ColorRGBA",
-			"Duration", "Empty", "Float32MultiArray", "Float32",
+		case "Bool", "ColorRGBA", "Empty", "Float32MultiArray", "Float32",
 			"Float64MultiArray", "Float64", "Header", "Int8MultiArray",
 			"Int8", "Int16MultiArray", "Int16", "Int32MultiArray", "Int32",
 			"Int64MultiArray", "Int64", "MultiArrayDimension", "MultiarrayLayout",
-			"String", "Time", "UInt8MultiArray", "UInt8", "UInt16MultiArray", "UInt16",
+			"String", "UInt8MultiArray", "UInt8", "UInt16MultiArray", "UInt16",
 			"UInt32MultiArray", "UInt32", "UInt64MultiArray", "UInt64":
 			return Name{Name: "std_msgs"}, Type{Name: Name{Name: parts[0]}, Kind: RosMsgType}
 
@@ -133,7 +132,7 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 			return Name{}, *Builtins.Types["float"]
 
 		case "time", "duration":
-			return Name{Name: "std_msgs"}, Type{Name: Name{Name: firstCharToUpper(f.Type.Name.Name)}, Kind: RosMsgType}
+			return Name{}, Type{Name: Name{Name: firstCharToUpper(f.Type.Name.Name)}, Kind: Protobuf}
 
 		case "byte", "char":
 			return Name{}, *Builtins.Types["uint32"]

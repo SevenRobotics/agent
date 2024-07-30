@@ -104,7 +104,7 @@ func (b bodyGen) doRosMsgType(sw *SnippetWriter) error {
 	for _, im := range imports {
 		p := filepath.Base(im)
 
-		if strings.ToLower(p) == strings.ToLower(b.t.Name.Name) {
+		if strings.ToLower(p) == strings.ToLower(b.t.Name.Name) && b.t.Name.Name != "Duration" {
 			continue // avoid self importing
 		}
 		fmt.Fprintf(out, "import \"%s.proto\";\n", im)
@@ -267,7 +267,13 @@ func getImports(locator ProtobufLocator, t *Type, localPackage Name) ([]string, 
 			imports = append(imports, fmt.Sprintf("%s/%s", f.TypePkg.Name, f.Type.Name))
 		} else if !f.Type.isBuiltin() {
 			log.Printf("Not a builtin type %s and its package is %s", f.Type.Name.Name, msgDef.RosPkgName.Name)
-			imports = append(imports, fmt.Sprintf("%s/%s", msgDef.RosPkgName.Name, f.Type.Name.Name))
+			if f.Type.Name.Name == "Time" {
+				imports = append(imports, "google/protobuf/timestamp")
+			} else if f.Type.Name.Name == "Duration" {
+				imports = append(imports, "google/protobuf/duration")
+			} else {
+				imports = append(imports, fmt.Sprintf("%s/%s", msgDef.RosPkgName.Name, f.Type.Name.Name))
+			}
 		}
 	}
 	return imports, nil
@@ -289,10 +295,16 @@ func memberToFields(locator ProtobufLocator, t *Type, localPackage Name) ([]prot
 		//   if f.TypePkg.Name != "" {
 		// 	continue // this is an import statement
 		// }
-		for k := range msgDef.Imports {
-			if strings.Contains(k, f.Type.Name.Name) {
-				m := strings.Split(k, "/")
-				f.Type.Name.Name = fmt.Sprintf("%s.%s", m[0], f.Type.Name.Name)
+		if f.Type.Name.Name == "Time" {
+			field.Type = &Type{Name: Name{Name: "google.protobuf.Timestamp"}, Kind: Protobuf}
+		} else if f.Type.Name.Name == "Duration" {
+			field.Type = &Type{Name: Name{Name: "google.protobuf.Duration"}, Kind: Protobuf}
+		} else {
+			for k := range msgDef.Imports {
+				if strings.Contains(k, f.Type.Name.Name) {
+					m := strings.Split(k, "/")
+					f.Type.Name.Name = fmt.Sprintf("%s.%s", m[0], f.Type.Name.Name)
+				}
 			}
 		}
 
