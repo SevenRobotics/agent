@@ -112,7 +112,7 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 			"Int64MultiArray", "Int64", "MultiArrayDimension", "MultiarrayLayout",
 			"String", "Time", "UInt8MultiArray", "UInt8", "UInt16MultiArray", "UInt16",
 			"UInt32MultiArray", "UInt32", "UInt64MultiArray", "UInt64":
-			return Name{Name: "std_msgs"}, Type{Name: Name{Name: parts[0]}}
+			return Name{Name: "std_msgs"}, Type{Name: Name{Name: parts[0]}, Kind: RosMsgType}
 
 		case "bool", "string":
 			return Name{}, f.Type
@@ -138,7 +138,6 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 		case "byte", "char":
 			return Name{}, *Builtins.Types["uint32"]
 		}
-
 		return Name{}, f.Type
 	}()
 
@@ -225,7 +224,6 @@ func ParseMessageDefinition(rosPkgName string, name string, content string) (*Me
 			res.Imports[f.TypePkg.Name+"/"+f.Type.Name.Name] = struct{}{}
 		}
 	}
-	//Take care of imports here
 	res.Type = Type{Name: Name{Name: name}, Kind: RosMsgType}
 	return res, nil
 }

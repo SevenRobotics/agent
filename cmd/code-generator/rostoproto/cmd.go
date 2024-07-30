@@ -223,16 +223,14 @@ func Run(g *GeneratorUtil) {
 		search_args = append(search_args, fmt.Sprintf("--proto_path=%s", includePath))
 		outputPath := filepath.Join(basepath, g.OutputDir)
 		tmp = strings.Split(outputPath, "/")
-		outDir := strings.Join(tmp[:len(tmp)-1], "/")
-
-		if _, err := os.Stat(outDir); os.IsNotExist(err) {
-			os.MkdirAll(outDir, 0755)
+		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+			os.MkdirAll(outputPath, 0755)
 		}
 
 		out_args := []string{}
 		out_args = append(out_args, path)
-		out_args = append(out_args, fmt.Sprintf("--go_out=%s", outDir))
-		// out_args = append(out_args, "--go_opt=paths=source_relative")
+		out_args = append(out_args, fmt.Sprintf("--go_out=%s", outputPath))
+		out_args = append(out_args, "--go_opt=paths=source_relative")
 		args := []string{}
 		args = append(args, out_args...)
 		args = append(args, search_args...)

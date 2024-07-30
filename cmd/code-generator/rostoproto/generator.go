@@ -26,7 +26,7 @@ type genProtoIDL struct {
 func (g *genProtoIDL) PackageVars(c *Context) []string {
 	return []string{
 		fmt.Sprintf("package %s;\n", g.localRosPackage),
-		fmt.Sprintf("option go_package=\"ros/%q\";", g.localRosPackage),
+		fmt.Sprintf("option go_package=\"go_agent/telemetry/genproto/ros/%q\";", g.localRosPackage),
 	}
 }
 
@@ -168,10 +168,10 @@ func (p protobufLocator) GetMessageDef(name Name, msgName string) (*MessageDefin
 	if t, ok := p.universe[name.Path]; ok {
 		if msg, ok := t.MessageDefs[name.Path]; ok {
 			ret := msg[msgName]
-			log.Printf("Message definiton: %s\n", msgName)
-			for i, def := range ret.Definitions {
-				log.Printf("Def %d: %v\n", i, def)
-			}
+			// log.Printf("Message definiton: %s\n", msgName)
+			// for i, def := range ret.Definitions {
+			// 	log.Printf("Def %d: %v\n", i, def)
+			// }
 			return ret, nil
 		}
 	}
@@ -281,22 +281,38 @@ func memberToFields(locator ProtobufLocator, t *Type, localPackage Name) ([]prot
 	}
 
 	for i, f := range msgDef.Fields {
-		if f.TypePkg.Name != "" {
-			continue // this is an import statement
-		}
 		field := protoField{
 			LocalPackage: localPackage,
 			Tag:          -1,
 		}
 
+		//   if f.TypePkg.Name != "" {
+		// 	continue // this is an import statement
+		// }
+		for k := range msgDef.Imports {
+			if strings.Contains(k, f.Type.Name.Name) {
+				m := strings.Split(k, "/")
+				f.Type.Name.Name = fmt.Sprintf("%s.%s", m[0], f.Type.Name.Name)
+			}
+		}
+
 		if field.Type == nil {
 			if err := memberTypeToProtobufField(locator, &field, &f.Type); err != nil {
-				return nil, fmt.Errorf("unable to embed type %q as field %q in %q: %v", &f.Type, field.Name, field.Type, err)
+				f.Type.Kind = RosMsgType
+				//prepend typename with proto package name
+				// field.Name = f.Type.Name.Name
+				nerr := memberTypeToProtobufField(locator, &field, &f.Type)
+				if nerr != nil {
+					log.Printf("unable to embed type %q as field %q in %q: %v", &f.Type, f.Name, field.Type, err)
+					return nil, fmt.Errorf("unable to embed type %q as field %q in %q: %v", &f.Type, f.Name, field.Type, err)
+				} else {
+					log.Printf("Embedding type %q as field %q in %q", &f.Type, f.Name, field.Name)
+				}
 			}
 		}
 
 		if len(field.Name) == 0 {
-			field.Name = IL(f.Name)
+			field.Name = f.Name
 		}
 
 		if f.TypeArray {
@@ -317,7 +333,7 @@ func assembleProtoFile(w io.Writer, f *File) {
 
 	if len(f.PackageName) != 0 {
 		fmt.Fprintf(w, "package %s;\n", f.PackagePath)
-		fmt.Fprintf(w, "option go_package = \"ros/%s\";\n\n", f.PackagePath)
+		fmt.Fprintf(w, "option go_package = \"go_agent/telemetry/genproto/ros/%s\";\n\n", f.PackagePath)
 	}
 	w.Write(f.Body.Bytes())
 }
