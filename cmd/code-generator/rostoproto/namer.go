@@ -135,13 +135,28 @@ type ProtobufNamer struct {
 	packagesByPath map[string]*ProtobufPackage
 }
 
+type RosSubGoNamer struct {
+	packages       []*RosSubPackage
+	packagesByPath map[string]*RosSubPackage
+}
+
 func NewProtobufNamer() *ProtobufNamer {
 	return &ProtobufNamer{
 		packagesByPath: make(map[string]*ProtobufPackage),
 	}
 }
 
+func NewRosSubNamer() *RosSubGoNamer {
+	return &RosSubGoNamer{
+		packagesByPath: make(map[string]*RosSubPackage),
+	}
+}
+
 func (n *ProtobufNamer) Name(t *Type) string {
+	return t.Name.String()
+}
+
+func (n *RosSubGoNamer) Name(t *Type) string {
 	return t.Name.String()
 }
 
@@ -152,7 +167,26 @@ func (n *ProtobufNamer) Add(p *ProtobufPackage) {
 	}
 }
 
+func (n *RosSubGoNamer) Add(p *RosSubPackage) {
+	if _, ok := n.packagesByPath[p.Path()]; !ok {
+		n.packagesByPath[p.Path()] = p
+		n.packages = append(n.packages, p)
+	}
+}
+
 func (n *ProtobufNamer) RosNameToProtoName(name Name) Name {
+	if p, ok := n.packagesByPath[name.Package]; ok {
+		return Name{
+			Name:    name.Name,
+			Package: p.Name(),
+			Path:    p.ImportPath(),
+		}
+	}
+
+	return Name{Name: name.Name}
+}
+
+func (n *RosSubGoNamer) RosNameToGoName(name Name) Name {
 	if p, ok := n.packagesByPath[name.Package]; ok {
 		return Name{
 			Name:    name.Name,

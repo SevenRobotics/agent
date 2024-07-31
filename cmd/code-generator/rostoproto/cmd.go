@@ -16,27 +16,39 @@ import (
 )
 
 type GeneratorUtil struct {
-	RosMsgFiles   string
-	RosPackages   string
-	OutputDir     string
-	ProtoDir      string
-	GoDir         string
-	ProtoImport   []string
-	Conditional   string
-	Clean         bool
-	OnlyIDL       bool
-	KeepGogoproto bool
+	RosMsgFiles     string
+	RosPackages     string
+	OutputDir       string
+	ProtoDir        string
+	GoDir           string
+	RosSubOutputDir string
+	ProtoImport     []string
+	Conditional     string
+	Clean           bool
+	OnlyIDL         bool
+	KeepGogoproto   bool
+}
+
+type GeneratorState struct {
+	//map of package name to its Messages: pkg -> [msgName -> MessageDefinition]
+	RosMsgPkgs map[string]map[string]*MessageDefinition
+	// map of ros messages and their proto paths
+	ProtoPkgPath map[string]string
+	// map of ros messages and their generared proto paths
+	ProtoImportPath map[string]string
 }
 
 func NewGen() *GeneratorUtil {
 	defaultOutputDir := "../../../telemetry/genproto/ros/"
 	relativeProtoDir := "../../../telemetry/protobuf/ros/"
+	rosSubOutputDir := "../../../ros_subscribers/ros/"
 	goOutputDir := "../../../telemetry/gengo/ros/"
 	return &GeneratorUtil{
-		OutputDir:   defaultOutputDir,
-		ProtoDir:    relativeProtoDir,
-		GoDir:       goOutputDir,
-		RosPackages: "",
+		OutputDir:       defaultOutputDir,
+		ProtoDir:        relativeProtoDir,
+		GoDir:           goOutputDir,
+		RosSubOutputDir: rosSubOutputDir,
+		RosPackages:     "",
 	}
 }
 
@@ -48,6 +60,7 @@ func (g *GeneratorUtil) BindFlags(flag *flag.FlagSet) {
 }
 
 func Run(g *GeneratorUtil) {
+	genState := GeneratorState{}
 	p := NewWithOptions(Options{BuildTags: []string{"proto"}})
 	var allPackages []string
 	var allMsgs []string
@@ -129,6 +142,9 @@ func Run(g *GeneratorUtil) {
 	}
 
 	loadablePackages := make([]string, 0, len(allPackages))
+	genState.RosMsgPkgs = map[string]map[string]*MessageDefinition{}
+	genState.ProtoPkgPath = map[string]string{}
+	genState.ProtoImportPath = map[string]string{}
 
 	for _, p := range allPackages {
 		if o, ok := inputPackageModifiers[p]; ok {
@@ -156,12 +172,18 @@ func Run(g *GeneratorUtil) {
 	}
 
 	c.FileTypes["protoidl"] = NewProtoFile()
+	c.FileTypes["go"] = NewRosSubFile()
 
 	protoBufNames := NewProtobufNamer()
+	RosSubNames := NewRosSubNamer()
 	outputPackages := []Target{}
+	RosSubPackages := []Target{}
 
 	for _, input := range c.Inputs {
 		pkg := c.Universe[filepath.Base(input)]
+		if _, ok := genState.RosMsgPkgs[pkg.Name]; !ok {
+			genState.RosMsgPkgs[pkg.Name] = map[string]*MessageDefinition{}
+		}
 		if pkg == nil {
 			fmt.Printf("pkg for input %v is empty", input)
 		}
@@ -169,19 +191,27 @@ func Run(g *GeneratorUtil) {
 		basepath := filepath.Dir(b)
 		dir := filepath.Join(basepath, g.ProtoDir, pkg.Name)
 		goDir := filepath.Join(basepath, g.GoDir, pkg.Name)
+		subDir := filepath.Join(basepath, g.RosSubOutputDir, pkg.Name)
 		err := rostogo.ImportPackage(input, goDir)
 		if err != nil {
 			log.Fatalf("Failed to import ros package %s: %v", pkg.Name, err)
 		}
+		t := genState.RosMsgPkgs[pkg.Name]
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
 			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
 			protoBufNames.Add(protopkg)
 			outputPackages = append(outputPackages, protopkg)
+			subpkg := NewRosSubPackage(pkg.Path, subDir, msg.Name.Name, true)
+			RosSubNames.Add(subpkg)
+			RosSubPackages = append(RosSubPackages, subpkg)
+			t[msg.Name.Name] = msg
+			genState.ProtoPkgPath[msg.Name.Name] = filepath.Join(dir, msg.Name.Name) + ".proto"
 		}
+		genState.RosMsgPkgs[pkg.Name] = t
 	}
 
 	c.Namers["proto"] = protoBufNames
-
+	c.Namers["go"] = RosSubNames
 	deps := deps(c, protoBufNames.packages)
 
 	order, err := importOrder(deps)
@@ -205,6 +235,10 @@ func Run(g *GeneratorUtil) {
 
 	if err := c.ExecuteTargets(outputPackages); err != nil {
 		log.Fatalf("Failed executing local generator: %v", err)
+	}
+
+	if err := c.ExecuteTargets(RosSubPackages); err != nil {
+		log.Fatalf("Failed executing ros sub generator: %v", err)
 	}
 
 	if _, err := exec.LookPath("protoc"); err != nil {
@@ -241,8 +275,21 @@ func Run(g *GeneratorUtil) {
 			log.Println(string(out))
 			log.Fatalf("Unable to run protoc on %s:%v", p.Name(), err)
 		}
+		genState.ProtoImportPath[p.Name()] = filepath.Join(outputPath, p.OutputPath())
 	}
 
+	for _, subPkg := range RosSubPackages {
+		genPath := filepath.Join(subPkg.Dir(), subPkg.Name()) + ".go"
+		cmd := exec.Command("gofmt", "-s", "-w", genPath)
+		out, err := cmd.CombinedOutput()
+		if len(out) > 0 {
+			log.Print(string(out))
+		}
+		if err != nil {
+			log.Println(strings.Join(cmd.Args, " "))
+			log.Fatalf("unable to apply gofmt to %s: %v", subPkg.Name(), err)
+		}
+	}
 	return
 }
 
