@@ -128,6 +128,7 @@ func (b bodyGen) doRosMsgType(sw *SnippetWriter) error {
 	fmt.Fprintf(out, "}\n\n")
 	return nil
 }
+
 func (b bodyGen) unknown(sw *SnippetWriter) error {
 	return fmt.Errorf("cannot generate %#v", b.t)
 }

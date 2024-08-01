@@ -1,8 +1,8 @@
 package rostoproto
 
 import (
+	"bytes"
 	"fmt"
-	flag "github.com/spf13/pflag"
 	"go_agent/cmd/code-generator/rostogo"
 	"go_agent/cmd/code-generator/rostoproto/util"
 	"log"
@@ -13,6 +13,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	flag "github.com/spf13/pflag"
 )
 
 type GeneratorUtil struct {
@@ -179,6 +181,24 @@ func Run(g *GeneratorUtil) {
 	outputPackages := []Target{}
 	RosSubPackages := []Target{}
 
+	_, b, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(b)
+
+	converterDir := filepath.Join(basepath, filepath.Dir(g.GoDir), "converter")
+	err = os.MkdirAll(converterDir, 0755)
+	if err != nil {
+		log.Fatalf("failed to create dir %s: %v", converterDir, err)
+	}
+	converterGoFile := converterDir + "/converter.go"
+	f, err := os.Create(converterGoFile)
+	if err != nil {
+		log.Fatalf("Failed to create file %s : %v", converterGoFile, err)
+	}
+
+	f.Write([]byte(WriteHeader()))
+	var importBuf bytes.Buffer
+	var converterBuf bytes.Buffer
+
 	for _, input := range c.Inputs {
 		pkg := c.Universe[filepath.Base(input)]
 		if _, ok := genState.RosMsgPkgs[pkg.Name]; !ok {
@@ -187,17 +207,27 @@ func Run(g *GeneratorUtil) {
 		if pkg == nil {
 			fmt.Printf("pkg for input %v is empty", input)
 		}
-		_, b, _, _ := runtime.Caller(0)
-		basepath := filepath.Dir(b)
+
 		dir := filepath.Join(basepath, g.ProtoDir, pkg.Name)
 		goDir := filepath.Join(basepath, g.GoDir, pkg.Name)
 		subDir := filepath.Join(basepath, g.RosSubOutputDir, pkg.Name)
-		err := rostogo.ImportPackage(input, goDir)
+
+		err = rostogo.ImportPackage(input, goDir)
 		if err != nil {
 			log.Fatalf("Failed to import ros package %s: %v", pkg.Name, err)
 		}
 		t := genState.RosMsgPkgs[pkg.Name]
+
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
+			imp, _ := WriteImports(msg)
+			importBuf.Write([]byte(imp))
+			break
+		}
+
+		for _, msg := range pkg.MessageDefs[pkg.Name] {
+			con, _ := WriteConverter(msg)
+			con = con + "\n\n"
+			converterBuf.Write([]byte(con))
 			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
 			protoBufNames.Add(protopkg)
 			outputPackages = append(outputPackages, protopkg)
@@ -208,6 +238,20 @@ func Run(g *GeneratorUtil) {
 			genState.ProtoPkgPath[msg.Name.Name] = filepath.Join(dir, msg.Name.Name) + ".proto"
 		}
 		genState.RosMsgPkgs[pkg.Name] = t
+	}
+
+	importBuf.Write([]byte(CloseImports()))
+	f.Write(importBuf.Bytes())
+	f.Write(converterBuf.Bytes())
+
+	cmd := exec.Command("gofmt", "-s", "-w", converterGoFile)
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		log.Print(string(out))
+	}
+	if err != nil {
+		log.Println(strings.Join(cmd.Args, " "))
+		log.Fatalf("unable to apply gofmt to %s: %v", converterGoFile, err)
 	}
 
 	c.Namers["proto"] = protoBufNames
@@ -245,8 +289,8 @@ func Run(g *GeneratorUtil) {
 		log.Fatalf("unable to find protoc: %v", err)
 	}
 
-	_, b, _, _ := runtime.Caller(0)
-	basepath := filepath.Dir(b)
+	_, b, _, _ = runtime.Caller(0)
+	basepath = filepath.Dir(b)
 	search_args := []string{}
 	for _, outputPackage := range outputPackages {
 		p := outputPackage.(*ProtobufPackage)
