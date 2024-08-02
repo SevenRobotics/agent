@@ -1,6 +1,11 @@
 package rostoproto
 
-import "strings"
+import (
+	"cmp"
+	"math"
+	"reflect"
+	"strings"
+)
 
 // ref: gengo v2 types
 type Name struct {
@@ -114,8 +119,9 @@ func (u Universe) Type(typeName Name) *Type {
 }
 
 type Type struct {
-	Name Name
-	Kind string // builtin primitive or array
+	Name     Name
+	Kind     string // builtin primitive or array
+	Original string
 }
 
 func (t *Type) String() string {
@@ -194,6 +200,10 @@ var (
 		Name: Name{Name: "byte"},
 		Kind: Builtin,
 	}
+	Double = &Type{
+		Name: Name{Name: "double"},
+		Kind: Builtin,
+	}
 
 	Builtins = &Package{
 		Types: map[string]*Type{
@@ -212,6 +222,7 @@ var (
 			"uintptr": Uintptr,
 			"byte":    Byte,
 			"float":   Float,
+			"double":  Double,
 			"float64": Float64,
 			"float32": Float32,
 		},
@@ -220,6 +231,28 @@ var (
 		Name:    "",
 	}
 )
+
+var BuiltinMaxes = [...]any{
+	reflect.Int:     math.MaxInt,
+	reflect.Int8:    math.MaxInt8,
+	reflect.Int32:   math.MaxInt32,
+	reflect.Int64:   math.MaxInt64,
+	reflect.Int16:   math.MaxInt16,
+	reflect.Uint:    uint64(math.MaxUint),
+	reflect.Uint8:   math.MaxUint8,
+	reflect.Uint16:  math.MaxUint16,
+	reflect.Uint32:  math.MaxUint32,
+	reflect.Uint64:  uint64(math.MaxUint64),
+	reflect.Float32: math.MaxFloat32,
+	reflect.Float64: math.MaxFloat64,
+}
+
+func Max[T cmp.Ordered]() T {
+	typ := reflect.TypeFor[T]()
+	v := BuiltinMaxes[typ.Kind()]
+	val := reflect.ValueOf(v).Convert(typ)
+	return val.Interface().(T)
+}
 
 func IsInteger(t *Type) bool {
 	switch t {

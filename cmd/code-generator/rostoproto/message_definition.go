@@ -116,10 +116,22 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 		case "bool", "string":
 			return Name{}, f.Type
 
-		case "int8", "int16", "int32":
+		case "int8":
+			return Name{}, Type{Name: Name{Name: "int32"}, Kind: Builtin, Original: "int8"}
+
+		case "int16":
+			return Name{}, Type{Name: Name{Name: "int32"}, Kind: Builtin, Original: "int16"}
+
+		case "int32":
 			return Name{}, *Builtins.Types["int32"]
 
-		case "uint8", "uint16", "uint32":
+		case "uint8":
+			return Name{}, Type{Name: Name{Name: "uint32"}, Kind: Builtin, Original: "uint8"}
+
+		case "uint16":
+			return Name{}, Type{Name: Name{Name: "uint32"}, Kind: Builtin, Original: "uint16"}
+
+		case "uint32":
 			return Name{}, *Builtins.Types["uint32"]
 
 		case "int64":
@@ -128,14 +140,17 @@ func parseField(rosPkgName string, res *MessageDefinition, typ string, name stri
 		case "uint64":
 			return Name{}, f.Type
 
-		case "float32", "float64":
+		case "float32":
 			return Name{}, *Builtins.Types["float"]
+
+		case "float64":
+			return Name{}, *Builtins.Types["double"]
 
 		case "time", "duration":
 			return Name{}, Type{Name: Name{Name: firstCharToUpper(f.Type.Name.Name)}, Kind: Protobuf}
 
 		case "byte", "char":
-			return Name{}, *Builtins.Types["uint32"]
+			return Name{}, Type{Name: Name{Name: "uint32"}, Kind: Builtin, Original: "byte"}
 		}
 		return Name{}, f.Type
 	}()
@@ -158,8 +173,11 @@ func parseDefinition(res *MessageDefinition, typ string, name string, val string
 			return *Builtins.Types["int8"]
 		case "char":
 			return *Builtins.Types["uint8"]
-		case "float32", "float64":
+		case "float32":
 			return *Builtins.Types["float"]
+		case "float64":
+			return *Builtins.Types["double"]
+
 		}
 		return d.RosType
 	}()

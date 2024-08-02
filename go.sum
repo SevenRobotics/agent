@@ -1,5 +1,5 @@
-github.com/SevenRobotics/goroslib/v2 v2.0.0-20240729160413-e8711669be18 h1:2OvIib5zdyXN9CQvpVg2xFLa7r6PT8bOgpHPnEU6f8s=
-github.com/SevenRobotics/goroslib/v2 v2.0.0-20240729160413-e8711669be18/go.mod h1:xiUY2i42sdkyPF3O0xznMAc4VcpsKUvtnPL3glwyMrY=
+github.com/SevenRobotics/goroslib/v2 v2.0.0-20240802101958-e71c19414184 h1:5hO6dqYSA+vWy79gF3gpgxfGkLjNIIf0ZxPONTYjsTs=
+github.com/SevenRobotics/goroslib/v2 v2.0.0-20240802101958-e71c19414184/go.mod h1:xiUY2i42sdkyPF3O0xznMAc4VcpsKUvtnPL3glwyMrY=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go_agent/cmd/code-generator/rostogo"
 	"go_agent/cmd/code-generator/rostoproto/util"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -24,6 +25,7 @@ type GeneratorUtil struct {
 	ProtoDir        string
 	GoDir           string
 	RosSubOutputDir string
+	Blacklist       []string
 	ProtoImport     []string
 	Conditional     string
 	Clean           bool
@@ -45,11 +47,13 @@ func NewGen() *GeneratorUtil {
 	relativeProtoDir := "../../../telemetry/protobuf/ros/"
 	rosSubOutputDir := "../../../ros_subscribers/ros/"
 	goOutputDir := "../../../telemetry/gengo/ros/"
+	blacklist := []string{"turtlesim", "tf"}
 	return &GeneratorUtil{
 		OutputDir:       defaultOutputDir,
 		ProtoDir:        relativeProtoDir,
 		GoDir:           goOutputDir,
 		RosSubOutputDir: rosSubOutputDir,
+		Blacklist:       blacklist,
 		RosPackages:     "",
 	}
 }
@@ -109,6 +113,14 @@ func Run(g *GeneratorUtil) {
 			modifier.output = false
 			inputPackageModifiers[d] = modifier
 			continue
+		}
+
+		for _, b := range g.Blacklist {
+			if filepath.Base(d) == b {
+				modifier.output = false
+				inputPackageModifiers[d] = modifier
+				continue
+			}
 		}
 
 		switch {
@@ -216,6 +228,18 @@ func Run(g *GeneratorUtil) {
 		if err != nil {
 			log.Fatalf("Failed to import ros package %s: %v", pkg.Name, err)
 		}
+
+		//remove all generated action files
+		filepath.WalkDir(goDir, func(path string, d fs.DirEntry, err error) error {
+			if strings.HasPrefix(d.Name(), "action") && filepath.Ext(d.Name()) == ".go" {
+				err := os.Remove(path)
+				if err != nil {
+					log.Fatalf("Failed to remove file %s: %v", path, err)
+				}
+			}
+			return nil
+		})
+
 		t := genState.RosMsgPkgs[pkg.Name]
 
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
