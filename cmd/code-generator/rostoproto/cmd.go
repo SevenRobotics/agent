@@ -240,6 +240,13 @@ func Run(g *GeneratorUtil) {
 			return nil
 		})
 
+		// generate package.go files for ros_subscribers
+		err := GenPackageFile(pkg.Name+"_sub", subDir)
+
+		if err != nil {
+			log.Fatalf("failed to create package.go for %s : %v", pkg.Name, err)
+		}
+
 		t := genState.RosMsgPkgs[pkg.Name]
 
 		for _, msg := range pkg.MessageDefs[pkg.Name] {

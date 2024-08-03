@@ -15,7 +15,7 @@ type rosSubGen struct {
 
 func (r *rosSubGen) PackageVars(c *Context) []string {
 	return []string{
-		fmt.Sprintf("package %s\n", r.localRosPackage),
+		fmt.Sprintf("package %s\n", strings.ToLower(r.OutputFilename)),
 	}
 }
 
@@ -128,8 +128,9 @@ func (b subBodyGen) doRosSub(sw *SnippetWriter) error {
     "go_agent/telemetry/gengo/ros"
     )
     
-    var msgStream chan *$.Name.Package$.$.Name.Name$
+    var msgStream chan $.Name.Package$.$.Name.Name$
     var initialized bool = false
+    var msgC $.Name.Package$.$.Name.Name$
 
     func msgCallback(msg *$.Name.Package$.$.Name.Name$) {
       if !initialized {
@@ -137,11 +138,12 @@ func (b subBodyGen) doRosSub(sw *SnippetWriter) error {
       }
 
       if msg != nil {
-        msgStream <- msg 
+        msgC = *msg 
+        msgStream <- msgC 
       }
     }
 
-    func Init(topicName string, n *goroslib.Node, msgS chan *$.Name.Package$.$.Name.Name$, done chan int) error {
+    func Init(topicName string, n *goroslib.Node, msgS chan $.Name.Package$.$.Name.Name$, done chan int) error {
       msgStream = msgS 
       sub, err := goroslib.NewSubscriber(goroslib.SubscriberConf{
         Node: n,
@@ -167,7 +169,7 @@ func (b subBodyGen) unknown(sw *SnippetWriter) error {
 func assembleRosSubFile(w io.Writer, file *File) {
 	w.Write(file.Header)
 	if len(file.PackageName) != 0 {
-		fmt.Fprintf(w, "package %s\n", file.PackagePath)
+		fmt.Fprintf(w, "package %s\n", strings.ToLower(file.PackageName)+"_sub")
 	}
 	w.Write(file.Body.Bytes())
 }
