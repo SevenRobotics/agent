@@ -45,7 +45,7 @@ type GeneratorState struct {
 func NewGen() *GeneratorUtil {
 	defaultOutputDir := "../../../telemetry/genproto/ros/"
 	relativeProtoDir := "../../../telemetry/protobuf/ros/"
-	rosSubOutputDir := "../../../ros_subscribers/ros/"
+	rosSubOutputDir := "../../../subscribers/ros/"
 	goOutputDir := "../../../telemetry/gengo/ros/"
 	blacklist := []string{"turtlesim", "tf"}
 	return &GeneratorUtil{
@@ -240,7 +240,7 @@ func Run(g *GeneratorUtil) {
 			return nil
 		})
 
-		// generate package.go files for ros_subscribers
+		// generate package.go files for ros subscribers
 		err := GenPackageFile(pkg.Name+"_sub", subDir)
 
 		if err != nil {
