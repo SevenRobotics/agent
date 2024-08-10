@@ -3,8 +3,9 @@ package rostoproto
 import (
 	"bytes"
 	"fmt"
-	"go_agent/cmd/code-generator/rostogo"
-	"go_agent/cmd/code-generator/rostoproto/util"
+	"go_agent/code-generator/rostogo"
+	"go_agent/code-generator/rostoproto/util"
+	"go_agent/utils"
 	"io/fs"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	flag "github.com/spf13/pflag"
 )
@@ -25,6 +27,7 @@ type GeneratorUtil struct {
 	ProtoDir        string
 	GoDir           string
 	RosSubOutputDir string
+	ConverterDir    string
 	Blacklist       []string
 	ProtoImport     []string
 	Conditional     string
@@ -33,26 +36,19 @@ type GeneratorUtil struct {
 	KeepGogoproto   bool
 }
 
-type GeneratorState struct {
-	//map of package name to its Messages: pkg -> [msgName -> MessageDefinition]
-	RosMsgPkgs map[string]map[string]*MessageDefinition
-	// map of ros messages and their proto paths
-	ProtoPkgPath map[string]string
-	// map of ros messages and their generared proto paths
-	ProtoImportPath map[string]string
-}
-
 func NewGen() *GeneratorUtil {
 	defaultOutputDir := "../../../telemetry/genproto/ros/"
 	relativeProtoDir := "../../../telemetry/protobuf/ros/"
 	rosSubOutputDir := "../../../subscribers/ros/"
 	goOutputDir := "../../../telemetry/gengo/ros/"
+	converterDir := "../../../telemetry/cmd/channel/"
 	blacklist := []string{"turtlesim", "tf"}
 	return &GeneratorUtil{
 		OutputDir:       defaultOutputDir,
 		ProtoDir:        relativeProtoDir,
 		GoDir:           goOutputDir,
 		RosSubOutputDir: rosSubOutputDir,
+		ConverterDir:    converterDir,
 		Blacklist:       blacklist,
 		RosPackages:     "",
 	}
@@ -65,8 +61,9 @@ func (g *GeneratorUtil) BindFlags(flag *flag.FlagSet) {
 	flag.StringSliceVar(&g.ProtoImport, "proto-import", g.ProtoImport, "A search path for imported protobufs")
 }
 
-func Run(g *GeneratorUtil) {
-	genState := GeneratorState{}
+func Run(g *GeneratorUtil, genState *utils.GeneratorState, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	p := NewWithOptions(Options{BuildTags: []string{"proto"}})
 	var allPackages []string
 	var allMsgs []string
@@ -156,7 +153,7 @@ func Run(g *GeneratorUtil) {
 	}
 
 	loadablePackages := make([]string, 0, len(allPackages))
-	genState.RosMsgPkgs = map[string]map[string]*MessageDefinition{}
+	genState.RosMsgPkgs = map[string]map[string]interface{}{}
 	genState.ProtoPkgPath = map[string]string{}
 	genState.ProtoImportPath = map[string]string{}
 
@@ -210,11 +207,15 @@ func Run(g *GeneratorUtil) {
 	f.Write([]byte(WriteHeader()))
 	var importBuf bytes.Buffer
 	var converterBuf bytes.Buffer
+	var serializerBuf bytes.Buffer
+	var switchBuf bytes.Buffer
+
+	switchBuf.Write([]byte(WriteGetFuncBegin()))
 
 	for _, input := range c.Inputs {
 		pkg := c.Universe[filepath.Base(input)]
 		if _, ok := genState.RosMsgPkgs[pkg.Name]; !ok {
-			genState.RosMsgPkgs[pkg.Name] = map[string]*MessageDefinition{}
+			genState.RosMsgPkgs[pkg.Name] = map[string]interface{}{}
 		}
 		if pkg == nil {
 			fmt.Printf("pkg for input %v is empty", input)
@@ -256,9 +257,17 @@ func Run(g *GeneratorUtil) {
 		}
 
 		for _, msg := range pkg.MessageDefs[pkg.Name] {
+			sw, _ := WriteSwitch(msg)
+			switchBuf.Write([]byte(sw))
+
 			con, _ := WriteConverter(msg)
 			con = con + "\n\n"
 			converterBuf.Write([]byte(con))
+
+			ser, _ := WriteSerializer(msg)
+			ser = ser + "\n\n"
+			serializerBuf.Write([]byte(ser))
+
 			protopkg := newProtobufPackage(pkg.Path, dir, msg.Name.Name, true)
 			protoBufNames.Add(protopkg)
 			outputPackages = append(outputPackages, protopkg)
@@ -273,7 +282,13 @@ func Run(g *GeneratorUtil) {
 
 	importBuf.Write([]byte(CloseImports()))
 	f.Write(importBuf.Bytes())
+
 	f.Write(converterBuf.Bytes())
+
+	f.Write(serializerBuf.Bytes())
+
+	f.Write(switchBuf.Bytes())
+	f.Write([]byte(WriteGetFuncEnd()))
 
 	cmd := exec.Command("gofmt", "-s", "-w", converterGoFile)
 	out, err := cmd.CombinedOutput()
@@ -365,6 +380,7 @@ func Run(g *GeneratorUtil) {
 			log.Fatalf("unable to apply gofmt to %s: %v", subPkg.Name(), err)
 		}
 	}
+
 	return
 }
 

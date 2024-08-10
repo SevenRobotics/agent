@@ -99,11 +99,35 @@ var tpl_imports = template.Must(template.New("").Parse(
   proto_{{ .RosPkgName.Name}} "go_agent/telemetry/genproto/ros/{{ .RosPkgName.Name }}"
   `))
 
+var tpl_switch = template.Must(template.New("").Parse(
+	`case "{{.Name.Name}}":
+return &channel.BuilderUtil[gengo_{{ .RosPkgName.Name }}.{{ .Name.Name }},proto_{{.RosPkgName.Name}}.{{.Name}}]{
+  MsgConverter: Convert{{.Name.Name}},
+  Serializer: Serialize{{.Name.Name}},
+}, nil
+  `))
+
+var tpl_serialize = template.Must(template.New("").Parse(
+	`func Serialize{{ .Name.Name }}(msg proto_{{ .RosPkgName.Name }}.{{ .Name.Name }}) ([]byte, error) {
+    return proto.Marshal(&msg)
+  }`))
+
+var tpl_init = template.Must(template.New("").Parse(
+	`func AssignBuilder() bool {
+	utils.NewBuilder("ros-rmq", GetBuilderFromName)
+	return true
+  }`))
+
 func WriteHeader() string {
 	var buf bytes.Buffer
 
 	fmt.Fprintf(&buf, "package converter\n\n")
 	fmt.Fprintf(&buf, "import (\n")
+	fmt.Fprintf(&buf, "\"fmt\"\n")
+	fmt.Fprintf(&buf, "\"github.com/golang/protobuf/proto\"\n")
+	fmt.Fprintf(&buf, "\"go_agent/iface\"\n")
+	fmt.Fprintf(&buf, "\"go_agent/utils\"\n")
+	fmt.Fprintf(&buf, "\"go_agent/telemetry/cmd/channel\"\n")
 	return buf.String()
 }
 
@@ -131,4 +155,41 @@ func WriteConverter(res *MessageDefinition) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func WriteSerializer(res *MessageDefinition) (string, error) {
+	var buf bytes.Buffer
+	err := tpl_serialize.Execute(&buf, res)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func WriteSwitch(res *MessageDefinition) (string, error) {
+	var buf bytes.Buffer
+	err := tpl_switch.Execute(&buf, res)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func WriteGetFuncBegin() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "func GetBuilderFromName(name string) (iface.Builder, error) {\n")
+	fmt.Fprintf(&buf, "switch name {\n")
+	return buf.String()
+}
+
+func WriteGetFuncEnd() string {
+	var buf, initBuf bytes.Buffer
+	fmt.Fprintf(&buf, "default:\n")
+	fmt.Fprintf(&buf, "return nil,fmt.Errorf(\"Unrecognized Type\")\n")
+	fmt.Fprintf(&buf, "}\n}\n")
+	err := tpl_init.Execute(&initBuf, nil)
+	if err != nil {
+		return ""
+	}
+	return buf.String() + initBuf.String()
 }

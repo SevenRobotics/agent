@@ -1,15 +1,18 @@
-package internal
+package rmq
 
 import (
 	"context"
 	"fmt"
+	"go_agent/config"
+	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+var lock = &sync.Mutex{}
+
 type RabbitMQMaster interface {
 	Connect() RabbitMQMaster
-	AddClient(client *RabbitClient) error
 	HasClient(name string) bool
 	NewClient(name string) (RabbitClient, error)
 	RemoveClient(name string) error
@@ -31,22 +34,17 @@ type rabbitClient struct {
 	ch   *amqp.Channel    // a multiplexed connection over the tcp connection i.e, conn
 }
 
-type RMQConfig struct {
-	username string
-	password string
-	host     string
-	vhost    string
-}
+var rabbitMQSingleton *rabbitMQ
 
 type rabbitMQ struct {
 	conn    *amqp.Connection
-	conf    RMQConfig
+	conf    config.RMQConfig
 	clients map[string]*rabbitClient
 }
 
 func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
 	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s/%s",
-		r.conf.username, r.conf.password, r.conf.host, r.conf.vhost))
+		r.conf.Username, r.conf.Password, r.conf.Host, r.conf.Vhost))
 
 	if err != nil {
 		return nil, err
@@ -56,31 +54,26 @@ func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
 	return r, nil
 }
 
-func NewRabbitMQ(username, password, host, vhost string) (*rabbitMQ, error) {
+func createRabbitMQ(conf config.RMQConfig) (*rabbitMQ, error) {
 
-	if username == "" {
+	if conf.Username == "" {
 		return nil, fmt.Errorf("Empty username provided")
 	}
 
-	if password == "" {
+	if conf.Password == "" {
 		return nil, fmt.Errorf("Empty password provided")
 	}
 
-	if host == "" {
+	if conf.Host == "" {
 		return nil, fmt.Errorf("host cannot be an empty string")
 	}
 
-	if vhost == "" {
+	if conf.Vhost == "" {
 		return nil, fmt.Errorf("vhost cannot be an empty string")
 	}
 
 	r := &rabbitMQ{
-		conf: RMQConfig{
-			username: username,
-			password: password,
-			host:     host,
-			vhost:    vhost,
-		},
+		conf:    conf,
 		clients: map[string]*rabbitClient{},
 	}
 
@@ -91,6 +84,21 @@ func NewRabbitMQ(username, password, host, vhost string) (*rabbitMQ, error) {
 	}
 
 	return r, nil
+
+}
+
+func NewRabbitMQ(conf config.RMQConfig) (*rabbitMQ, error) {
+
+	if rabbitMQSingleton == nil {
+		lock.Lock()
+		defer lock.Unlock()
+		r, err := createRabbitMQ(conf)
+		if err != nil {
+			return nil, fmt.Errorf("RMQ Creation error: %v", err)
+		}
+		rabbitMQSingleton = r
+	}
+	return rabbitMQSingleton, nil
 }
 
 func (r *rabbitMQ) HasClient(name string) bool {
@@ -104,21 +112,13 @@ func (r *rabbitMQ) Close() error {
 	return r.conn.Close()
 }
 
-func (r *rabbitMQ) AddClient(name string, client *rabbitClient) error {
-	if client.conn == nil || client.ch == nil {
-		return fmt.Errorf("Client type invalid or uninitialized")
-	}
-	if r.HasClient(name) {
-		return fmt.Errorf("Client %s already exists", name)
-	}
-	r.clients[name] = client
-
-	return nil
-}
-
 func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
 	if r.conn == nil {
 		return nil, fmt.Errorf("Cannot add clients to an uninitialized RMQ Connection")
+	}
+
+	if r.HasClient(name) {
+		return nil, fmt.Errorf("Client already exists, please provide a new key")
 	}
 
 	ch, err := r.conn.Channel()
@@ -126,6 +126,7 @@ func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	r.clients[name] = &rabbitClient{
 		conn: r.conn,
 		ch:   ch,
