@@ -15,35 +15,35 @@ type GeneratorState struct {
 
 var builders *builderUniverse
 
-type builderFinder struct {
+type BuilderFinder struct {
 	GetBuilderFromName func(string) (iface.Builder, error)
 	Generated          bool
 }
 
-func (b builderFinder) IsGenerated() bool {
+func (b BuilderFinder) IsGenerated() bool {
 	return b.Generated
 }
 
 type builderUniverse struct {
-	builders map[string]builderFinder
+	builders map[string]BuilderFinder
 }
 
-func NewBuilder(name string, finder func(string) (iface.Builder, error)) builderFinder {
+func NewBuilder(name string, finder func(string) (iface.Builder, error)) BuilderFinder {
 
 	if builders == nil {
 		builders = &builderUniverse{}
-		builders.builders = map[string]builderFinder{}
+		builders.builders = map[string]BuilderFinder{}
 	}
 
 	if _, ok := builders.builders[name]; ok {
 		if builders.builders[name].GetBuilderFromName == nil && finder != nil {
-			builders.builders[name] = builderFinder{GetBuilderFromName: finder, Generated: true}
+			builders.builders[name] = BuilderFinder{GetBuilderFromName: finder, Generated: true}
 		}
 	} else {
 		if finder != nil {
-			builders.builders[name] = builderFinder{GetBuilderFromName: finder, Generated: true}
+			builders.builders[name] = BuilderFinder{GetBuilderFromName: finder, Generated: true}
 		} else {
-			builders.builders[name] = builderFinder{Generated: false}
+			builders.builders[name] = BuilderFinder{Generated: false}
 		}
 	}
 

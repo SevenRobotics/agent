@@ -7,4 +7,6 @@ type Pipeline interface {
 	Start(*sync.WaitGroup)
 	GetErrorStream() chan error
 	Name() string
+	IsActive() bool
+	Deactivate()
 }

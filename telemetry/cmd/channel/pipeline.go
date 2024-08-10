@@ -18,6 +18,7 @@ type pipeline[S any, P any] struct {
 	errorChannel chan error
 	done         chan int
 	name         string
+	active       bool
 	conn         *rmq.RabbitMQMaster
 }
 
@@ -61,16 +62,31 @@ func NewPipeline[S any, P any](conf config.RRPipelineConfig, msgConverter func(i
 	}, nil
 }
 
+func (p *pipeline[S, P]) IsActive() bool {
+	return p.active
+}
+
+func (p *pipeline[S, P]) Deactivate() {
+	p.active = false
+}
+
 func (p *pipeline[S, P]) Shutdown() {}
 
 func (p *pipeline[S, P]) Start(wg *sync.WaitGroup) {
 
+	p.active = true
+
+	defer p.Deactivate()
 	defer wg.Done()
 	fmt.Printf("Starting pipeline %s\n", p.name)
 
 	wg.Add(1)
 	go p.bridge.Run(wg)
-	p.subscriber.Initialise(p.in)
+	err := p.subscriber.Initialise(p.in)
+	if err != nil {
+		p.errorChannel <- err
+		return
+	}
 	wg.Add(1)
 	go p.publisher.Run(p.out, p.done, p.errorChannel, wg)
 }

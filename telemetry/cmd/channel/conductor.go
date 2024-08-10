@@ -36,7 +36,7 @@ type State struct {
 }
 
 type Conductor interface {
-	RunPipelines() error
+	RunPipelines(*sync.WaitGroup)
 	BuildPipelines() error
 	CheckForNewTopics(chan<- [][]string, chan int)
 	Start(genState *utils.GeneratorState) error
@@ -63,23 +63,23 @@ type conductor struct {
 
 	genState *utils.GeneratorState
 
-	ticker *time.Ticker
+	ticker      *time.Ticker
+	builderutil utils.BuilderFinder
 }
 
 func NewConductor(rmqConf config.RMQConfig, nodeConfig config.RosNodeConfig) (Conductor, error) {
+
+	builder_util := utils.NewBuilder("ros-rmq", nil)
+	if !builder_util.Generated {
+		return nil, fmt.Errorf("builder util not generated or assigned yet. Do not call build code during generation")
+	}
+
 	return &conductor{
-		rmqConfig:  rmqConf,
-		nodeConfig: &nodeConfig,
-		client:     apimaster.NewClient(nodeConfig.Address, nodeConfig.Name, &http.Client{}),
+		rmqConfig:   rmqConf,
+		nodeConfig:  &nodeConfig,
+		client:      apimaster.NewClient(nodeConfig.Address, nodeConfig.Name, &http.Client{}),
+		builderutil: builder_util,
 	}, nil
-}
-
-func (c *conductor) RunPipelines() error {
-	return nil
-}
-
-func (c *conductor) BuildPipelines() error {
-	return nil
 }
 
 func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan int) {
@@ -136,66 +136,14 @@ func (c *conductor) Start(genState *utils.GeneratorState) error {
 		return err
 	}
 
-	builder_util := utils.NewBuilder("ros-rmq", nil)
-	if !builder_util.Generated {
-		return fmt.Errorf("builder util not generated or assigned yet. Do not call build code during generation")
+	err = c.ConfigureBuilders()
+	if err != nil {
+		return err
 	}
 
-	for k, v := range c.internalState.ValidTopics {
-		if v {
-			if info, ok := c.internalState.Topics[k]; ok {
-				var err error
-				c.internalState.Builders[k], err = builder_util.GetBuilderFromName(info.Name)
-				if err != nil {
-					return fmt.Errorf("Error retrieving builder for %s:%v", info.Name, err)
-				}
-				log.Printf("Added builder for %s %s: %v", k, "/"+strings.ReplaceAll(k, ".", "/"), c.internalState.Builders[k])
-				c.internalState.Configs[k] = &config.RRPipelineConfig{
-					RMQConnConfig: c.rmqConfig,
-					RMQPubConfig: config.RMQClientConfig{
-						Exchange:   "robot1",
-						Topic:      k,
-						RoutingKey: strings.Join([]string{info.Package, info.Name}, ".") + ".*",
-						Durable:    true,
-						Autodelete: false,
-					},
-					SubConfig: config.RosSubscriberConfig{
-						Node: config.RosNodeConfig{
-							Name:    strings.ReplaceAll(k, ".", "_") + "_node",
-							Address: c.nodeConfig.Address,
-						},
-						Topic: "/" + strings.ReplaceAll(k, ".", "/"),
-						Name:  strings.ReplaceAll(k, ".", "_") + "_sub",
-					},
-					Name: k,
-				}
-			}
-		}
-	}
-
-	for name, builder := range c.internalState.Builders {
-		if conf, ok := c.internalState.Configs[name]; ok {
-			c.internalState.Pipelines[name], err = builder.BuildPipeline(*conf)
-			if err != nil {
-				return fmt.Errorf("Failed to build pipeline for %s: %v", name, err)
-			}
-		} else {
-			return fmt.Errorf("Pipeline Config not found for %s", name)
-		}
-		log.Printf("Pipeline created for %s\n", name)
-		c.errorChannels[name] = c.internalState.Pipelines[name].GetErrorStream()
-	}
-
-	//run error channel listener goroutines here
-	for name, errCh := range c.errorChannels {
-		go func(errCh chan error) {
-			for {
-				select {
-				case err := <-errCh:
-					log.Printf("Error on %s: %v\n", name, err)
-				}
-			}
-		}(errCh)
+	err = c.BuildPipelines()
+	if err != nil {
+		return err
 	}
 
 	topicStream := make(chan [][]string)
@@ -208,7 +156,11 @@ func (c *conductor) Start(genState *utils.GeneratorState) error {
 			select {
 			case topics := <-topicS:
 				log.Printf("New topic discovered %v\n", topics)
+				//load new topics, configure builders, build and run new pipelines
 				c.LoadTopicInfoFrom(topics)
+				// c.ConfigureBuilders()
+				// c.BuildPipelines()
+				// c.RunPipelines(c.waitGroup)
 			case err := <-c.errorChannels["self"]:
 				log.Printf("Error scanning for new topics: %v\n", err)
 			case <-done:
@@ -221,10 +173,7 @@ func (c *conductor) Start(genState *utils.GeneratorState) error {
 	go c.CheckForNewTopics(topicStream, done)
 
 	//start pipelines here
-	for _, pipeline := range c.internalState.Pipelines {
-		c.waitGroup.Add(1)
-		go pipeline.Start(c.waitGroup)
-	}
+	c.RunPipelines(c.waitGroup)
 
 	c.waitGroup.Wait()
 	return nil
@@ -287,4 +236,83 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 
 	return nil
 
+}
+
+func (c *conductor) ConfigureBuilders() error {
+	for k, v := range c.internalState.ValidTopics {
+		if v {
+			if info, ok := c.internalState.Topics[k]; ok {
+				var err error
+				if _, ok := c.internalState.Builders[k]; !ok {
+					c.internalState.Builders[k], err = c.builderutil.GetBuilderFromName(info.Name)
+					if err != nil {
+						return fmt.Errorf("Error retrieving builder for %s:%v", info.Name, err)
+					}
+					log.Printf("Added builder for %s %s: %v", k, "/"+strings.ReplaceAll(k, ".", "/"), c.internalState.Builders[k])
+
+					c.internalState.Configs[k] = &config.RRPipelineConfig{
+						RMQConnConfig: c.rmqConfig,
+						RMQPubConfig: config.RMQClientConfig{
+							Exchange:   "robot1",
+							Topic:      k,
+							RoutingKey: strings.Join([]string{info.Package, info.Name}, ".") + ".*",
+							Durable:    true,
+							Autodelete: false,
+						},
+						SubConfig: config.RosSubscriberConfig{
+							Node: config.RosNodeConfig{
+								Name:    strings.ReplaceAll(k, ".", "_") + "_node",
+								Address: c.nodeConfig.Address,
+							},
+							Topic: "/" + strings.ReplaceAll(k, ".", "/"),
+							Name:  strings.ReplaceAll(k, ".", "_") + "_sub",
+						},
+						Name: k,
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *conductor) BuildPipelines() error {
+	for name, builder := range c.internalState.Builders {
+		if conf, ok := c.internalState.Configs[name]; ok {
+
+			if c.internalState.Pipelines[name].IsActive() {
+				continue
+			}
+
+			p, err := builder.BuildPipeline(*conf)
+			if err != nil {
+				return fmt.Errorf("Failed to build pipeline for %s: %v", name, err)
+			}
+			c.internalState.Pipelines[name] = p
+		} else {
+			return fmt.Errorf("Pipeline Config not found for %s", name)
+		}
+		log.Printf("Pipeline created for %s\n", name)
+		c.errorChannels[name] = c.internalState.Pipelines[name].GetErrorStream()
+	}
+	return nil
+}
+
+func (c *conductor) RunPipelines(wg *sync.WaitGroup) {
+	for _, pipeline := range c.internalState.Pipelines {
+		if !pipeline.IsActive() {
+			c.errorChannels[pipeline.Name()] = pipeline.GetErrorStream()
+			c.waitGroup.Add(1)
+			go func(errCh chan error) {
+				for {
+					select {
+					case err := <-errCh:
+						log.Printf("Error on %s: %v\n", pipeline.Name(), err)
+					}
+				}
+			}(c.errorChannels[pipeline.Name()])
+			c.waitGroup.Add(1)
+			go pipeline.Start(c.waitGroup)
+		}
+	}
 }

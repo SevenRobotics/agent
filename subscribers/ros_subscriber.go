@@ -65,7 +65,7 @@ func (s *rosSubscriber[T]) Initialise(out chan<- T) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to initialise subscriber %s: %v", s.conf.Name, err)
+		return fmt.Errorf("Failed to initialise subscriber %s: %v", s.conf.Name, err)
 	}
 
 	s.sub = sub
