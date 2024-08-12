@@ -37,11 +37,11 @@ type GeneratorUtil struct {
 }
 
 func NewGen() *GeneratorUtil {
-	defaultOutputDir := "../../../telemetry/genproto/ros/"
-	relativeProtoDir := "../../../telemetry/protobuf/ros/"
-	rosSubOutputDir := "../../../subscribers/ros/"
-	goOutputDir := "../../../telemetry/gengo/ros/"
-	converterDir := "../../../telemetry/cmd/channel/"
+	defaultOutputDir := "../../telemetry/genproto/ros/"
+	relativeProtoDir := "../../telemetry/protobuf/ros/"
+	rosSubOutputDir := "../../subscribers/ros/"
+	goOutputDir := "../../telemetry/gengo/ros/"
+	converterDir := "../../telemetry/cmd/channel/"
 	blacklist := []string{"turtlesim", "tf"}
 	return &GeneratorUtil{
 		OutputDir:       defaultOutputDir,

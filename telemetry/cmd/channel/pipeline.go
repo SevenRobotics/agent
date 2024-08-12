@@ -76,7 +76,6 @@ func (p *pipeline[S, P]) Start(wg *sync.WaitGroup) {
 
 	p.active = true
 
-	defer p.Deactivate()
 	defer wg.Done()
 	fmt.Printf("Starting pipeline %s\n", p.name)
 

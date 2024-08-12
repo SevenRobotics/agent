@@ -32,7 +32,7 @@ type State struct {
 
 	Configs map[string]*config.RRPipelineConfig
 
-	ValidTopics map[string]bool
+	ValidTopics map[string]struct{}
 }
 
 type Conductor interface {
@@ -158,9 +158,9 @@ func (c *conductor) Start(genState *utils.GeneratorState) error {
 				log.Printf("New topic discovered %v\n", topics)
 				//load new topics, configure builders, build and run new pipelines
 				c.LoadTopicInfoFrom(topics)
-				// c.ConfigureBuilders()
-				// c.BuildPipelines()
-				// c.RunPipelines(c.waitGroup)
+				c.ConfigureBuilders()
+				c.BuildPipelines()
+				c.RunPipelines(c.waitGroup)
 			case err := <-c.errorChannels["self"]:
 				log.Printf("Error scanning for new topics: %v\n", err)
 			case <-done:
@@ -204,7 +204,7 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 	}
 
 	if c.internalState.ValidTopics == nil {
-		c.internalState.ValidTopics = map[string]bool{}
+		c.internalState.ValidTopics = map[string]struct{}{}
 	}
 
 	for _, message := range topics {
@@ -224,13 +224,10 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 
 	for k, v := range c.internalState.Topics {
 		if t, ok := c.genState.RosMsgPkgs[v.Package]; ok {
-			if _, ok := t[v.Name]; !ok {
-				c.internalState.ValidTopics[k] = false
+			if _, ok := t[v.Name]; ok {
+				c.internalState.ValidTopics[k] = struct{}{}
 				continue
 			}
-			c.internalState.ValidTopics[k] = true
-		} else {
-			c.internalState.ValidTopics[k] = false
 		}
 	}
 
@@ -239,36 +236,34 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 }
 
 func (c *conductor) ConfigureBuilders() error {
-	for k, v := range c.internalState.ValidTopics {
-		if v {
-			if info, ok := c.internalState.Topics[k]; ok {
-				var err error
-				if _, ok := c.internalState.Builders[k]; !ok {
-					c.internalState.Builders[k], err = c.builderutil.GetBuilderFromName(info.Name)
-					if err != nil {
-						return fmt.Errorf("Error retrieving builder for %s:%v", info.Name, err)
-					}
-					log.Printf("Added builder for %s %s: %v", k, "/"+strings.ReplaceAll(k, ".", "/"), c.internalState.Builders[k])
+	for k := range c.internalState.ValidTopics {
+		if info, ok := c.internalState.Topics[k]; ok {
+			var err error
+			if _, ok := c.internalState.Builders[k]; !ok {
+				c.internalState.Builders[k], err = c.builderutil.GetBuilderFromName(info.Name)
+				if err != nil {
+					return fmt.Errorf("Error retrieving builder for %s:%v", info.Name, err)
+				}
+				log.Printf("Added builder for %s %s: %v", k, "/"+strings.ReplaceAll(k, ".", "/"), c.internalState.Builders[k])
 
-					c.internalState.Configs[k] = &config.RRPipelineConfig{
-						RMQConnConfig: c.rmqConfig,
-						RMQPubConfig: config.RMQClientConfig{
-							Exchange:   "robot1",
-							Topic:      k,
-							RoutingKey: strings.Join([]string{info.Package, info.Name}, ".") + ".*",
-							Durable:    true,
-							Autodelete: false,
+				c.internalState.Configs[k] = &config.RRPipelineConfig{
+					RMQConnConfig: c.rmqConfig,
+					RMQPubConfig: config.RMQClientConfig{
+						Exchange:   "robot1",
+						Topic:      k,
+						RoutingKey: strings.Join([]string{info.Package, info.Name}, ".") + ".*",
+						Durable:    true,
+						Autodelete: false,
+					},
+					SubConfig: config.RosSubscriberConfig{
+						Node: config.RosNodeConfig{
+							Name:    strings.ReplaceAll(k, ".", "_") + "_node",
+							Address: c.nodeConfig.Address,
 						},
-						SubConfig: config.RosSubscriberConfig{
-							Node: config.RosNodeConfig{
-								Name:    strings.ReplaceAll(k, ".", "_") + "_node",
-								Address: c.nodeConfig.Address,
-							},
-							Topic: "/" + strings.ReplaceAll(k, ".", "/"),
-							Name:  strings.ReplaceAll(k, ".", "_") + "_sub",
-						},
-						Name: k,
-					}
+						Topic: "/" + strings.ReplaceAll(k, ".", "/"),
+						Name:  strings.ReplaceAll(k, ".", "_") + "_sub",
+					},
+					Name: k,
 				}
 			}
 		}
@@ -279,9 +274,13 @@ func (c *conductor) ConfigureBuilders() error {
 func (c *conductor) BuildPipelines() error {
 	for name, builder := range c.internalState.Builders {
 		if conf, ok := c.internalState.Configs[name]; ok {
-
-			if c.internalState.Pipelines[name].IsActive() {
-				continue
+			if pipe, ok := c.internalState.Pipelines[name]; ok {
+				if pipe.IsActive() {
+					log.Printf("Pipeline %s is active, will not rebuild\n", pipe.Name())
+					continue
+				} else {
+					log.Printf("Pipeline %s is inactive\n", pipe.Name())
+				}
 			}
 
 			p, err := builder.BuildPipeline(*conf)
