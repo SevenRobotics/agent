@@ -2,7 +2,7 @@
 package main
 
 import (
-	"go_agent/cmd/code-generator/rostoproto"
+	"go_agent/code-generator/rostoproto"
 	"go_agent/utils"
 	"sync"
 )

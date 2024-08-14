@@ -33,13 +33,15 @@ type State struct {
 	Configs map[string]*config.RRPipelineConfig
 
 	ValidTopics map[string]struct{}
+
+	UserRequestedTopics map[string]struct{}
 }
 
 type Conductor interface {
 	RunPipelines(*sync.WaitGroup)
 	BuildPipelines() error
 	CheckForNewTopics(chan<- [][]string, chan int)
-	Start(genState *utils.GeneratorState) error
+	Start(genState *utils.GeneratorState, userTopics []string) error
 }
 
 type conductor struct {
@@ -119,7 +121,7 @@ func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan i
 	}
 }
 
-func (c *conductor) Start(genState *utils.GeneratorState) error {
+func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) error {
 
 	c.genState = genState
 
@@ -129,6 +131,11 @@ func (c *conductor) Start(genState *utils.GeneratorState) error {
 	c.internalState.Builders = map[string]iface.Builder{}
 	c.internalState.Pipelines = map[string]iface.Pipeline{}
 	c.internalState.Configs = map[string]*config.RRPipelineConfig{}
+	c.internalState.UserRequestedTopics = map[string]struct{}{}
+
+	for _, topic := range userTopics {
+		c.internalState.UserRequestedTopics[topic] = struct{}{}
+	}
 
 	err := c.LoadTopicInfo()
 
@@ -223,10 +230,12 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 	}
 
 	for k, v := range c.internalState.Topics {
-		if t, ok := c.genState.RosMsgPkgs[v.Package]; ok {
-			if _, ok := t[v.Name]; ok {
-				c.internalState.ValidTopics[k] = struct{}{}
-				continue
+		if _, ok := c.internalState.UserRequestedTopics["/"+strings.ReplaceAll(k, ".", "/")]; ok {
+			if t, ok := c.genState.RosMsgPkgs[v.Package]; ok {
+				if _, ok := t[v.Name]; ok {
+					c.internalState.ValidTopics[k] = struct{}{}
+					continue
+				}
 			}
 		}
 	}
