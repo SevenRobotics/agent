@@ -35,7 +35,7 @@ func (r *rmqSubscriber[S]) Configure() error {
 }
 
 func (r *rmqSubscriber[S]) Receive() (<-chan amqp.Delivery, error) {
-	return r.client.Receive(r.config.Ctx, r.config.Exchange, "", true)
+	return r.client.Receive(r.config.Ctx, r.config.Topic, "", true)
 }
 
 func NewRMQSubscriber[S any](conf config.RMQClientConfig, client RabbitClient) (*rmqSubscriber[S], error) {

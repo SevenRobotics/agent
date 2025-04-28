@@ -14,14 +14,11 @@ import (
 	gengo_controller_manager_msgs "go_agent/telemetry/gengo/ros/controller_manager_msgs"
 	gengo_diagnostic_msgs "go_agent/telemetry/gengo/ros/diagnostic_msgs"
 	gengo_dynamic_reconfigure "go_agent/telemetry/gengo/ros/dynamic_reconfigure"
-	gengo_find_object_2d "go_agent/telemetry/gengo/ros/find_object_2d"
 	gengo_geometry_msgs "go_agent/telemetry/gengo/ros/geometry_msgs"
 	gengo_mpc_local_planner_msgs "go_agent/telemetry/gengo/ros/mpc_local_planner_msgs"
-	gengo_opencv_apps "go_agent/telemetry/gengo/ros/opencv_apps"
+	gengo_nav_msgs "go_agent/telemetry/gengo/ros/nav_msgs"
+	gengo_plotjuggler_msgs "go_agent/telemetry/gengo/ros/plotjuggler_msgs"
 	gengo_realsense2_camera "go_agent/telemetry/gengo/ros/realsense2_camera"
-	gengo_rosapi "go_agent/telemetry/gengo/ros/rosapi"
-	gengo_rosbridge_library "go_agent/telemetry/gengo/ros/rosbridge_library"
-	gengo_rosbridge_msgs "go_agent/telemetry/gengo/ros/rosbridge_msgs"
 	gengo_roscpp "go_agent/telemetry/gengo/ros/roscpp"
 	gengo_rosgraph_msgs "go_agent/telemetry/gengo/ros/rosgraph_msgs"
 	gengo_rospy_tutorials "go_agent/telemetry/gengo/ros/rospy_tutorials"
@@ -29,13 +26,9 @@ import (
 	gengo_smach_msgs "go_agent/telemetry/gengo/ros/smach_msgs"
 	gengo_sound_play "go_agent/telemetry/gengo/ros/sound_play"
 	gengo_std_msgs "go_agent/telemetry/gengo/ros/std_msgs"
-	gengo_teleop_tools_msgs "go_agent/telemetry/gengo/ros/teleop_tools_msgs"
 	gengo_theora_image_transport "go_agent/telemetry/gengo/ros/theora_image_transport"
 	gengo_turtle_actionlib "go_agent/telemetry/gengo/ros/turtle_actionlib"
-	gengo_turtlebot3_msgs "go_agent/telemetry/gengo/ros/turtlebot3_msgs"
 	gengo_uuid_msgs "go_agent/telemetry/gengo/ros/uuid_msgs"
-	gengo_viso2_ros "go_agent/telemetry/gengo/ros/viso2_ros"
-	gengo_webrtc_ros "go_agent/telemetry/gengo/ros/webrtc_ros"
 	proto_actionlib "go_agent/telemetry/genproto/ros/actionlib"
 	proto_actionlib_msgs "go_agent/telemetry/genproto/ros/actionlib_msgs"
 	proto_actionlib_tutorials "go_agent/telemetry/genproto/ros/actionlib_tutorials"
@@ -45,14 +38,11 @@ import (
 	proto_controller_manager_msgs "go_agent/telemetry/genproto/ros/controller_manager_msgs"
 	proto_diagnostic_msgs "go_agent/telemetry/genproto/ros/diagnostic_msgs"
 	proto_dynamic_reconfigure "go_agent/telemetry/genproto/ros/dynamic_reconfigure"
-	proto_find_object_2d "go_agent/telemetry/genproto/ros/find_object_2d"
 	proto_geometry_msgs "go_agent/telemetry/genproto/ros/geometry_msgs"
 	proto_mpc_local_planner_msgs "go_agent/telemetry/genproto/ros/mpc_local_planner_msgs"
-	proto_opencv_apps "go_agent/telemetry/genproto/ros/opencv_apps"
+	proto_nav_msgs "go_agent/telemetry/genproto/ros/nav_msgs"
+	proto_plotjuggler_msgs "go_agent/telemetry/genproto/ros/plotjuggler_msgs"
 	proto_realsense2_camera "go_agent/telemetry/genproto/ros/realsense2_camera"
-	proto_rosapi "go_agent/telemetry/genproto/ros/rosapi"
-	proto_rosbridge_library "go_agent/telemetry/genproto/ros/rosbridge_library"
-	proto_rosbridge_msgs "go_agent/telemetry/genproto/ros/rosbridge_msgs"
 	proto_roscpp "go_agent/telemetry/genproto/ros/roscpp"
 	proto_rosgraph_msgs "go_agent/telemetry/genproto/ros/rosgraph_msgs"
 	proto_rospy_tutorials "go_agent/telemetry/genproto/ros/rospy_tutorials"
@@ -60,15 +50,94 @@ import (
 	proto_smach_msgs "go_agent/telemetry/genproto/ros/smach_msgs"
 	proto_sound_play "go_agent/telemetry/genproto/ros/sound_play"
 	proto_std_msgs "go_agent/telemetry/genproto/ros/std_msgs"
-	proto_teleop_tools_msgs "go_agent/telemetry/genproto/ros/teleop_tools_msgs"
 	proto_theora_image_transport "go_agent/telemetry/genproto/ros/theora_image_transport"
 	proto_turtle_actionlib "go_agent/telemetry/genproto/ros/turtle_actionlib"
-	proto_turtlebot3_msgs "go_agent/telemetry/genproto/ros/turtlebot3_msgs"
 	proto_uuid_msgs "go_agent/telemetry/genproto/ros/uuid_msgs"
-	proto_viso2_ros "go_agent/telemetry/genproto/ros/viso2_ros"
-	proto_webrtc_ros "go_agent/telemetry/genproto/ros/webrtc_ros"
 	"go_agent/utils"
 )
+
+func ConvertStateFeedback(rosMsg gengo_mpc_local_planner_msgs.StateFeedback) (proto_mpc_local_planner_msgs.StateFeedback, error) {
+
+	ret := proto_mpc_local_planner_msgs.StateFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert StateFeedback, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]float64, 0, len(rosMsg.State))
+	for _, m := range rosMsg.State {
+		t1 = append(t1, m)
+	}
+
+	ret.State = append(ret.State, t1...)
+
+	return ret, nil
+}
+
+func ConvertOptimalControlResult(rosMsg gengo_mpc_local_planner_msgs.OptimalControlResult) (proto_mpc_local_planner_msgs.OptimalControlResult, error) {
+
+	ret := proto_mpc_local_planner_msgs.OptimalControlResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert OptimalControlResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.DimStates = rosMsg.DimStates
+
+	ret.DimControls = rosMsg.DimControls
+
+	t3 := make([]float64, 0, len(rosMsg.TimeStates))
+	for _, m := range rosMsg.TimeStates {
+		t3 = append(t3, m)
+	}
+
+	ret.TimeStates = append(ret.TimeStates, t3...)
+
+	t4 := make([]float64, 0, len(rosMsg.States))
+	for _, m := range rosMsg.States {
+		t4 = append(t4, m)
+	}
+
+	ret.States = append(ret.States, t4...)
+
+	t5 := make([]float64, 0, len(rosMsg.TimeControls))
+	for _, m := range rosMsg.TimeControls {
+		t5 = append(t5, m)
+	}
+
+	ret.TimeControls = append(ret.TimeControls, t5...)
+
+	t6 := make([]float64, 0, len(rosMsg.Controls))
+	for _, m := range rosMsg.Controls {
+		t6 = append(t6, m)
+	}
+
+	ret.Controls = append(ret.Controls, t6...)
+
+	ret.OptimalSolutionFound = rosMsg.OptimalSolutionFound
+
+	ret.CpuTime = rosMsg.CpuTime
+
+	return ret, nil
+}
 
 func ConvertPosition2DInt(rosMsg gengo_base_local_planner.Position2DInt) (proto_base_local_planner.Position2DInt, error) {
 
@@ -81,6 +150,40 @@ func ConvertPosition2DInt(rosMsg gengo_base_local_planner.Position2DInt) (proto_
 	ret.X = rosMsg.X
 
 	ret.Y = rosMsg.Y
+
+	return ret, nil
+}
+
+func ConvertExtrinsics(rosMsg gengo_realsense2_camera.Extrinsics) (proto_realsense2_camera.Extrinsics, error) {
+
+	ret := proto_realsense2_camera.Extrinsics{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Extrinsics, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]float64, 0, len(rosMsg.Rotation))
+	for _, m := range rosMsg.Rotation {
+		t1 = append(t1, m)
+	}
+
+	ret.Rotation = append(ret.Rotation, t1...)
+
+	t2 := make([]float64, 0, len(rosMsg.Translation))
+	for _, m := range rosMsg.Translation {
+		t2 = append(t2, m)
+	}
+
+	ret.Translation = append(ret.Translation, t2...)
 
 	return ret, nil
 }
@@ -141,407 +244,6 @@ func ConvertMetadata(rosMsg gengo_realsense2_camera.Metadata) (proto_realsense2_
 	return ret, nil
 }
 
-func ConvertExtrinsics(rosMsg gengo_realsense2_camera.Extrinsics) (proto_realsense2_camera.Extrinsics, error) {
-
-	ret := proto_realsense2_camera.Extrinsics{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Extrinsics, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float64, 0, len(rosMsg.Rotation))
-	for _, m := range rosMsg.Rotation {
-		t1 = append(t1, m)
-	}
-
-	ret.Rotation = append(ret.Rotation, t1...)
-
-	t2 := make([]float64, 0, len(rosMsg.Translation))
-	for _, m := range rosMsg.Translation {
-		t2 = append(t2, m)
-	}
-
-	ret.Translation = append(ret.Translation, t2...)
-
-	return ret, nil
-}
-
-func ConvertVisoInfo(rosMsg gengo_viso2_ros.VisoInfo) (proto_viso2_ros.VisoInfo, error) {
-
-	ret := proto_viso2_ros.VisoInfo{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert VisoInfo, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.GotLost = rosMsg.GotLost
-
-	ret.ChangeReferenceFrame = rosMsg.ChangeReferenceFrame
-
-	ret.MotionEstimateValid = rosMsg.MotionEstimateValid
-
-	ret.NumMatches = rosMsg.NumMatches
-
-	ret.NumInliers = rosMsg.NumInliers
-
-	ret.Runtime = rosMsg.Runtime
-
-	return ret, nil
-}
-
-func ConvertTypeDef(rosMsg gengo_rosapi.TypeDef) (proto_rosapi.TypeDef, error) {
-
-	ret := proto_rosapi.TypeDef{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TypeDef, msg is nil")
-	//}
-
-	ret.Type = rosMsg.Type
-
-	t1 := make([]string, 0, len(rosMsg.Fieldnames))
-	for _, m := range rosMsg.Fieldnames {
-		t1 = append(t1, m)
-	}
-
-	ret.Fieldnames = append(ret.Fieldnames, t1...)
-
-	t2 := make([]string, 0, len(rosMsg.Fieldtypes))
-	for _, m := range rosMsg.Fieldtypes {
-		t2 = append(t2, m)
-	}
-
-	ret.Fieldtypes = append(ret.Fieldtypes, t2...)
-
-	t3 := make([]int32, 0, len(rosMsg.Fieldarraylen))
-	for _, m := range rosMsg.Fieldarraylen {
-		t3 = append(t3, m)
-	}
-
-	ret.Fieldarraylen = append(ret.Fieldarraylen, t3...)
-
-	t4 := make([]string, 0, len(rosMsg.Examples))
-	for _, m := range rosMsg.Examples {
-		t4 = append(t4, m)
-	}
-
-	ret.Examples = append(ret.Examples, t4...)
-
-	t5 := make([]string, 0, len(rosMsg.Constnames))
-	for _, m := range rosMsg.Constnames {
-		t5 = append(t5, m)
-	}
-
-	ret.Constnames = append(ret.Constnames, t5...)
-
-	t6 := make([]string, 0, len(rosMsg.Constvalues))
-	for _, m := range rosMsg.Constvalues {
-		t6 = append(t6, m)
-	}
-
-	ret.Constvalues = append(ret.Constvalues, t6...)
-
-	return ret, nil
-}
-
-func ConvertTestChar(rosMsg gengo_rosbridge_library.TestChar) (proto_rosbridge_library.TestChar, error) {
-
-	ret := proto_rosbridge_library.TestChar{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestChar, msg is nil")
-	//}
-
-	t0 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t0 = append(t0, a)
-	}
-
-	ret.Data = append(ret.Data, t0...)
-
-	return ret, nil
-}
-
-func ConvertTestDurationArray(rosMsg gengo_rosbridge_library.TestDurationArray) (proto_rosbridge_library.TestDurationArray, error) {
-
-	ret := proto_rosbridge_library.TestDurationArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestDurationArray, msg is nil")
-	//}
-
-	return ret, nil
-}
-
-func ConvertTestUInt8(rosMsg gengo_rosbridge_library.TestUInt8) (proto_rosbridge_library.TestUInt8, error) {
-
-	ret := proto_rosbridge_library.TestUInt8{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestUInt8, msg is nil")
-	//}
-
-	t0 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t0 = append(t0, a)
-	}
-
-	ret.Data = append(ret.Data, t0...)
-
-	return ret, nil
-}
-
-func ConvertNum(rosMsg gengo_rosbridge_library.Num) (proto_rosbridge_library.Num, error) {
-
-	ret := proto_rosbridge_library.Num{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Num, msg is nil")
-	//}
-
-	ret.Num = rosMsg.Num
-
-	return ret, nil
-}
-
-func ConvertTestHeaderArray(rosMsg gengo_rosbridge_library.TestHeaderArray) (proto_rosbridge_library.TestHeaderArray, error) {
-
-	ret := proto_rosbridge_library.TestHeaderArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestHeaderArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Header {
-		c, err := ConvertHeader(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Header = append(ret.Header, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestHeaderTwo(rosMsg gengo_rosbridge_library.TestHeaderTwo) (proto_rosbridge_library.TestHeaderTwo, error) {
-
-	ret := proto_rosbridge_library.TestHeaderTwo{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestHeaderTwo, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestTimeArray(rosMsg gengo_rosbridge_library.TestTimeArray) (proto_rosbridge_library.TestTimeArray, error) {
-
-	ret := proto_rosbridge_library.TestTimeArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestTimeArray, msg is nil")
-	//}
-
-	return ret, nil
-}
-
-func ConvertTestUInt8FixedSizeArray16(rosMsg gengo_rosbridge_library.TestUInt8FixedSizeArray16) (proto_rosbridge_library.TestUInt8FixedSizeArray16, error) {
-
-	ret := proto_rosbridge_library.TestUInt8FixedSizeArray16{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestUInt8FixedSizeArray16, msg is nil")
-	//}
-
-	t0 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t0 = append(t0, a)
-	}
-
-	ret.Data = append(ret.Data, t0...)
-
-	return ret, nil
-}
-
-func ConvertTestHeader(rosMsg gengo_rosbridge_library.TestHeader) (proto_rosbridge_library.TestHeader, error) {
-
-	ret := proto_rosbridge_library.TestHeader{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestHeader, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertConnectedClients(rosMsg gengo_rosbridge_msgs.ConnectedClients) (proto_rosbridge_msgs.ConnectedClients, error) {
-
-	ret := proto_rosbridge_msgs.ConnectedClients{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ConnectedClients, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Clients {
-		c, err := ConvertConnectedClient(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Clients = append(ret.Clients, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertConnectedClient(rosMsg gengo_rosbridge_msgs.ConnectedClient) (proto_rosbridge_msgs.ConnectedClient, error) {
-
-	ret := proto_rosbridge_msgs.ConnectedClient{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ConnectedClient, msg is nil")
-	//}
-
-	ret.IpAddress = rosMsg.IpAddress
-
-	return ret, nil
-}
-
-func ConvertIceServer(rosMsg gengo_webrtc_ros.IceServer) (proto_webrtc_ros.IceServer, error) {
-
-	ret := proto_webrtc_ros.IceServer{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IceServer, msg is nil")
-	//}
-
-	ret.Uri = rosMsg.Uri
-
-	ret.Username = rosMsg.Username
-
-	ret.Password = rosMsg.Password
-
-	return ret, nil
-}
-
-func ConvertTestAction(rosMsg gengo_actionlib.TestAction) (proto_actionlib.TestAction, error) {
-
-	ret := proto_actionlib.TestAction{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestAction, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertTestActionGoal(rosMsg.ActionGoal)
-	ret.ActionGoal = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertTestActionResult(rosMsg.ActionResult)
-	ret.ActionResult = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestActionFeedback(rosMsg.ActionFeedback)
-	ret.ActionFeedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestActionGoal(rosMsg gengo_actionlib.TestActionGoal) (proto_actionlib.TestActionGoal, error) {
-
-	ret := proto_actionlib.TestActionGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestActionGoal, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalID(rosMsg.GoalId)
-	ret.GoalId = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestGoal(rosMsg.Goal)
-	ret.Goal = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
 func ConvertTestFeedback(rosMsg gengo_actionlib.TestFeedback) (proto_actionlib.TestFeedback, error) {
 
 	ret := proto_actionlib.TestFeedback{}
@@ -551,296 +253,6 @@ func ConvertTestFeedback(rosMsg gengo_actionlib.TestFeedback) (proto_actionlib.T
 	//}
 
 	ret.Feedback = rosMsg.Feedback
-
-	return ret, nil
-}
-
-func ConvertTestRequestActionGoal(rosMsg gengo_actionlib.TestRequestActionGoal) (proto_actionlib.TestRequestActionGoal, error) {
-
-	ret := proto_actionlib.TestRequestActionGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestRequestActionGoal, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalID(rosMsg.GoalId)
-	ret.GoalId = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestRequestGoal(rosMsg.Goal)
-	ret.Goal = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestRequestActionResult(rosMsg gengo_actionlib.TestRequestActionResult) (proto_actionlib.TestRequestActionResult, error) {
-
-	ret := proto_actionlib.TestRequestActionResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestRequestActionResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestRequestResult(rosMsg.Result)
-	ret.Result = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestRequestFeedback(rosMsg gengo_actionlib.TestRequestFeedback) (proto_actionlib.TestRequestFeedback, error) {
-
-	ret := proto_actionlib.TestRequestFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestRequestFeedback, msg is nil")
-	//}
-
-	return ret, nil
-}
-
-func ConvertTwoIntsGoal(rosMsg gengo_actionlib.TwoIntsGoal) (proto_actionlib.TwoIntsGoal, error) {
-
-	ret := proto_actionlib.TwoIntsGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsGoal, msg is nil")
-	//}
-
-	ret.A = rosMsg.A
-
-	ret.B = rosMsg.B
-
-	return ret, nil
-}
-
-func ConvertTestActionResult(rosMsg gengo_actionlib.TestActionResult) (proto_actionlib.TestActionResult, error) {
-
-	ret := proto_actionlib.TestActionResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestActionResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestResult(rosMsg.Result)
-	ret.Result = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTestGoal(rosMsg gengo_actionlib.TestGoal) (proto_actionlib.TestGoal, error) {
-
-	ret := proto_actionlib.TestGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestGoal, msg is nil")
-	//}
-
-	ret.Goal = rosMsg.Goal
-
-	return ret, nil
-}
-
-func ConvertTwoIntsActionFeedback(rosMsg gengo_actionlib.TwoIntsActionFeedback) (proto_actionlib.TwoIntsActionFeedback, error) {
-
-	ret := proto_actionlib.TwoIntsActionFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionFeedback, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTwoIntsFeedback(rosMsg.Feedback)
-	ret.Feedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTwoIntsActionGoal(rosMsg gengo_actionlib.TwoIntsActionGoal) (proto_actionlib.TwoIntsActionGoal, error) {
-
-	ret := proto_actionlib.TwoIntsActionGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionGoal, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalID(rosMsg.GoalId)
-	ret.GoalId = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTwoIntsGoal(rosMsg.Goal)
-	ret.Goal = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTwoIntsActionResult(rosMsg gengo_actionlib.TwoIntsActionResult) (proto_actionlib.TwoIntsActionResult, error) {
-
-	ret := proto_actionlib.TwoIntsActionResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTwoIntsResult(rosMsg.Result)
-	ret.Result = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTwoIntsResult(rosMsg gengo_actionlib.TwoIntsResult) (proto_actionlib.TwoIntsResult, error) {
-
-	ret := proto_actionlib.TwoIntsResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsResult, msg is nil")
-	//}
-
-	ret.Sum = rosMsg.Sum
-
-	return ret, nil
-}
-
-func ConvertTestActionFeedback(rosMsg gengo_actionlib.TestActionFeedback) (proto_actionlib.TestActionFeedback, error) {
-
-	ret := proto_actionlib.TestActionFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TestActionFeedback, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertTestFeedback(rosMsg.Feedback)
-	ret.Feedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
 
 	return ret, nil
 }
@@ -913,6 +325,74 @@ func ConvertTestRequestActionFeedback(rosMsg gengo_actionlib.TestRequestActionFe
 	return ret, nil
 }
 
+func ConvertTestRequestActionGoal(rosMsg gengo_actionlib.TestRequestActionGoal) (proto_actionlib.TestRequestActionGoal, error) {
+
+	ret := proto_actionlib.TestRequestActionGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestRequestActionGoal, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalID(rosMsg.GoalId)
+	ret.GoalId = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestRequestGoal(rosMsg.Goal)
+	ret.Goal = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTwoIntsActionResult(rosMsg gengo_actionlib.TwoIntsActionResult) (proto_actionlib.TwoIntsActionResult, error) {
+
+	ret := proto_actionlib.TwoIntsActionResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTwoIntsResult(rosMsg.Result)
+	ret.Result = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
 func ConvertTestRequestGoal(rosMsg gengo_actionlib.TestRequestGoal) (proto_actionlib.TestRequestGoal, error) {
 
 	ret := proto_actionlib.TestRequestGoal{}
@@ -930,6 +410,74 @@ func ConvertTestRequestGoal(rosMsg gengo_actionlib.TestRequestGoal) (proto_actio
 	ret.TheResult = rosMsg.TheResult
 
 	ret.IsSimpleClient = rosMsg.IsSimpleClient
+
+	return ret, nil
+}
+
+func ConvertTestAction(rosMsg gengo_actionlib.TestAction) (proto_actionlib.TestAction, error) {
+
+	ret := proto_actionlib.TestAction{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestAction, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertTestActionGoal(rosMsg.ActionGoal)
+	ret.ActionGoal = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertTestActionResult(rosMsg.ActionResult)
+	ret.ActionResult = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestActionFeedback(rosMsg.ActionFeedback)
+	ret.ActionFeedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTestActionFeedback(rosMsg gengo_actionlib.TestActionFeedback) (proto_actionlib.TestActionFeedback, error) {
+
+	ret := proto_actionlib.TestActionFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestActionFeedback, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestFeedback(rosMsg.Feedback)
+	ret.Feedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
 
 	return ret, nil
 }
@@ -958,6 +506,205 @@ func ConvertTestResult(rosMsg gengo_actionlib.TestResult) (proto_actionlib.TestR
 	//}
 
 	ret.Result = rosMsg.Result
+
+	return ret, nil
+}
+
+func ConvertTwoIntsActionGoal(rosMsg gengo_actionlib.TwoIntsActionGoal) (proto_actionlib.TwoIntsActionGoal, error) {
+
+	ret := proto_actionlib.TwoIntsActionGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionGoal, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalID(rosMsg.GoalId)
+	ret.GoalId = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTwoIntsGoal(rosMsg.Goal)
+	ret.Goal = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTwoIntsGoal(rosMsg gengo_actionlib.TwoIntsGoal) (proto_actionlib.TwoIntsGoal, error) {
+
+	ret := proto_actionlib.TwoIntsGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsGoal, msg is nil")
+	//}
+
+	ret.A = rosMsg.A
+
+	ret.B = rosMsg.B
+
+	return ret, nil
+}
+
+func ConvertTwoIntsResult(rosMsg gengo_actionlib.TwoIntsResult) (proto_actionlib.TwoIntsResult, error) {
+
+	ret := proto_actionlib.TwoIntsResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsResult, msg is nil")
+	//}
+
+	ret.Sum = rosMsg.Sum
+
+	return ret, nil
+}
+
+func ConvertTwoIntsFeedback(rosMsg gengo_actionlib.TwoIntsFeedback) (proto_actionlib.TwoIntsFeedback, error) {
+
+	ret := proto_actionlib.TwoIntsFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsFeedback, msg is nil")
+	//}
+
+	return ret, nil
+}
+
+func ConvertTestActionGoal(rosMsg gengo_actionlib.TestActionGoal) (proto_actionlib.TestActionGoal, error) {
+
+	ret := proto_actionlib.TestActionGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestActionGoal, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalID(rosMsg.GoalId)
+	ret.GoalId = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestGoal(rosMsg.Goal)
+	ret.Goal = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTestActionResult(rosMsg gengo_actionlib.TestActionResult) (proto_actionlib.TestActionResult, error) {
+
+	ret := proto_actionlib.TestActionResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestActionResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestResult(rosMsg.Result)
+	ret.Result = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTestGoal(rosMsg gengo_actionlib.TestGoal) (proto_actionlib.TestGoal, error) {
+
+	ret := proto_actionlib.TestGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestGoal, msg is nil")
+	//}
+
+	ret.Goal = rosMsg.Goal
+
+	return ret, nil
+}
+
+func ConvertTestRequestActionResult(rosMsg gengo_actionlib.TestRequestActionResult) (proto_actionlib.TestRequestActionResult, error) {
+
+	ret := proto_actionlib.TestRequestActionResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestRequestActionResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTestRequestResult(rosMsg.Result)
+	ret.Result = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTestRequestFeedback(rosMsg gengo_actionlib.TestRequestFeedback) (proto_actionlib.TestRequestFeedback, error) {
+
+	ret := proto_actionlib.TestRequestFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TestRequestFeedback, msg is nil")
+	//}
 
 	return ret, nil
 }
@@ -996,13 +743,36 @@ func ConvertTwoIntsAction(rosMsg gengo_actionlib.TwoIntsAction) (proto_actionlib
 	return ret, nil
 }
 
-func ConvertTwoIntsFeedback(rosMsg gengo_actionlib.TwoIntsFeedback) (proto_actionlib.TwoIntsFeedback, error) {
+func ConvertTwoIntsActionFeedback(rosMsg gengo_actionlib.TwoIntsActionFeedback) (proto_actionlib.TwoIntsActionFeedback, error) {
 
-	ret := proto_actionlib.TwoIntsFeedback{}
+	ret := proto_actionlib.TwoIntsActionFeedback{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwoIntsFeedback, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert TwoIntsActionFeedback, msg is nil")
 	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertTwoIntsFeedback(rosMsg.Feedback)
+	ret.Feedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
 
 	return ret, nil
 }
@@ -1076,40 +846,6 @@ func ConvertGoalStatusArray(rosMsg gengo_actionlib_msgs.GoalStatusArray) (proto_
 	return ret, nil
 }
 
-func ConvertAveragingAction(rosMsg gengo_actionlib_tutorials.AveragingAction) (proto_actionlib_tutorials.AveragingAction, error) {
-
-	ret := proto_actionlib_tutorials.AveragingAction{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert AveragingAction, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertAveragingActionGoal(rosMsg.ActionGoal)
-	ret.ActionGoal = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertAveragingActionResult(rosMsg.ActionResult)
-	ret.ActionResult = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertAveragingActionFeedback(rosMsg.ActionFeedback)
-	ret.ActionFeedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
 func ConvertAveragingActionGoal(rosMsg gengo_actionlib_tutorials.AveragingActionGoal) (proto_actionlib_tutorials.AveragingActionGoal, error) {
 
 	ret := proto_actionlib_tutorials.AveragingActionGoal{}
@@ -1144,6 +880,172 @@ func ConvertAveragingActionGoal(rosMsg gengo_actionlib_tutorials.AveragingAction
 	return ret, nil
 }
 
+func ConvertFibonacciActionResult(rosMsg gengo_actionlib_tutorials.FibonacciActionResult) (proto_actionlib_tutorials.FibonacciActionResult, error) {
+
+	ret := proto_actionlib_tutorials.FibonacciActionResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert FibonacciActionResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertFibonacciResult(rosMsg.Result)
+	ret.Result = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertFibonacciGoal(rosMsg gengo_actionlib_tutorials.FibonacciGoal) (proto_actionlib_tutorials.FibonacciGoal, error) {
+
+	ret := proto_actionlib_tutorials.FibonacciGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert FibonacciGoal, msg is nil")
+	//}
+
+	ret.Order = rosMsg.Order
+
+	return ret, nil
+}
+
+func ConvertAveragingAction(rosMsg gengo_actionlib_tutorials.AveragingAction) (proto_actionlib_tutorials.AveragingAction, error) {
+
+	ret := proto_actionlib_tutorials.AveragingAction{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert AveragingAction, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertAveragingActionGoal(rosMsg.ActionGoal)
+	ret.ActionGoal = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertAveragingActionResult(rosMsg.ActionResult)
+	ret.ActionResult = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertAveragingActionFeedback(rosMsg.ActionFeedback)
+	ret.ActionFeedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertAveragingActionFeedback(rosMsg gengo_actionlib_tutorials.AveragingActionFeedback) (proto_actionlib_tutorials.AveragingActionFeedback, error) {
+
+	ret := proto_actionlib_tutorials.AveragingActionFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert AveragingActionFeedback, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertAveragingFeedback(rosMsg.Feedback)
+	ret.Feedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertAveragingResult(rosMsg gengo_actionlib_tutorials.AveragingResult) (proto_actionlib_tutorials.AveragingResult, error) {
+
+	ret := proto_actionlib_tutorials.AveragingResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert AveragingResult, msg is nil")
+	//}
+
+	ret.Mean = rosMsg.Mean
+
+	ret.StdDev = rosMsg.StdDev
+
+	return ret, nil
+}
+
+func ConvertFibonacciFeedback(rosMsg gengo_actionlib_tutorials.FibonacciFeedback) (proto_actionlib_tutorials.FibonacciFeedback, error) {
+
+	ret := proto_actionlib_tutorials.FibonacciFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert FibonacciFeedback, msg is nil")
+	//}
+
+	t0 := make([]int32, 0, len(rosMsg.Sequence))
+	for _, m := range rosMsg.Sequence {
+		t0 = append(t0, m)
+	}
+
+	ret.Sequence = append(ret.Sequence, t0...)
+
+	return ret, nil
+}
+
+func ConvertFibonacciResult(rosMsg gengo_actionlib_tutorials.FibonacciResult) (proto_actionlib_tutorials.FibonacciResult, error) {
+
+	ret := proto_actionlib_tutorials.FibonacciResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert FibonacciResult, msg is nil")
+	//}
+
+	t0 := make([]int32, 0, len(rosMsg.Sequence))
+	for _, m := range rosMsg.Sequence {
+		t0 = append(t0, m)
+	}
+
+	ret.Sequence = append(ret.Sequence, t0...)
+
+	return ret, nil
+}
+
 func ConvertAveragingActionResult(rosMsg gengo_actionlib_tutorials.AveragingActionResult) (proto_actionlib_tutorials.AveragingActionResult, error) {
 
 	ret := proto_actionlib_tutorials.AveragingActionResult{}
@@ -1174,21 +1076,6 @@ func ConvertAveragingActionResult(rosMsg gengo_actionlib_tutorials.AveragingActi
 	if err != nil {
 		return ret, err
 	}
-
-	return ret, nil
-}
-
-func ConvertAveragingResult(rosMsg gengo_actionlib_tutorials.AveragingResult) (proto_actionlib_tutorials.AveragingResult, error) {
-
-	ret := proto_actionlib_tutorials.AveragingResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert AveragingResult, msg is nil")
-	//}
-
-	ret.Mean = rosMsg.Mean
-
-	ret.StdDev = rosMsg.StdDev
 
 	return ret, nil
 }
@@ -1293,71 +1180,6 @@ func ConvertFibonacciActionGoal(rosMsg gengo_actionlib_tutorials.FibonacciAction
 	return ret, nil
 }
 
-func ConvertFibonacciGoal(rosMsg gengo_actionlib_tutorials.FibonacciGoal) (proto_actionlib_tutorials.FibonacciGoal, error) {
-
-	ret := proto_actionlib_tutorials.FibonacciGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FibonacciGoal, msg is nil")
-	//}
-
-	ret.Order = rosMsg.Order
-
-	return ret, nil
-}
-
-func ConvertFibonacciFeedback(rosMsg gengo_actionlib_tutorials.FibonacciFeedback) (proto_actionlib_tutorials.FibonacciFeedback, error) {
-
-	ret := proto_actionlib_tutorials.FibonacciFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FibonacciFeedback, msg is nil")
-	//}
-
-	t0 := make([]int32, 0, len(rosMsg.Sequence))
-	for _, m := range rosMsg.Sequence {
-		t0 = append(t0, m)
-	}
-
-	ret.Sequence = append(ret.Sequence, t0...)
-
-	return ret, nil
-}
-
-func ConvertAveragingActionFeedback(rosMsg gengo_actionlib_tutorials.AveragingActionFeedback) (proto_actionlib_tutorials.AveragingActionFeedback, error) {
-
-	ret := proto_actionlib_tutorials.AveragingActionFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert AveragingActionFeedback, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertAveragingFeedback(rosMsg.Feedback)
-	ret.Feedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
 func ConvertFibonacciAction(rosMsg gengo_actionlib_tutorials.FibonacciAction) (proto_actionlib_tutorials.FibonacciAction, error) {
 
 	ret := proto_actionlib_tutorials.FibonacciAction{}
@@ -1388,58 +1210,6 @@ func ConvertFibonacciAction(rosMsg gengo_actionlib_tutorials.FibonacciAction) (p
 	if err != nil {
 		return ret, err
 	}
-
-	return ret, nil
-}
-
-func ConvertFibonacciActionResult(rosMsg gengo_actionlib_tutorials.FibonacciActionResult) (proto_actionlib_tutorials.FibonacciActionResult, error) {
-
-	ret := proto_actionlib_tutorials.FibonacciActionResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FibonacciActionResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertFibonacciResult(rosMsg.Result)
-	ret.Result = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFibonacciResult(rosMsg gengo_actionlib_tutorials.FibonacciResult) (proto_actionlib_tutorials.FibonacciResult, error) {
-
-	ret := proto_actionlib_tutorials.FibonacciResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FibonacciResult, msg is nil")
-	//}
-
-	t0 := make([]int32, 0, len(rosMsg.Sequence))
-	for _, m := range rosMsg.Sequence {
-		t0 = append(t0, m)
-	}
-
-	ret.Sequence = append(ret.Sequence, t0...)
 
 	return ret, nil
 }
@@ -1654,6 +1424,21 @@ func ConvertControllerStatistics(rosMsg gengo_controller_manager_msgs.Controller
 	return ret, nil
 }
 
+func ConvertKeyValue(rosMsg gengo_diagnostic_msgs.KeyValue) (proto_diagnostic_msgs.KeyValue, error) {
+
+	ret := proto_diagnostic_msgs.KeyValue{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert KeyValue, msg is nil")
+	//}
+
+	ret.Key = rosMsg.Key
+
+	ret.Value = rosMsg.Value
+
+	return ret, nil
+}
+
 func ConvertDiagnosticArray(rosMsg gengo_diagnostic_msgs.DiagnosticArray) (proto_diagnostic_msgs.DiagnosticArray, error) {
 
 	ret := proto_diagnostic_msgs.DiagnosticArray{}
@@ -1719,15 +1504,60 @@ func ConvertDiagnosticStatus(rosMsg gengo_diagnostic_msgs.DiagnosticStatus) (pro
 	return ret, nil
 }
 
-func ConvertKeyValue(rosMsg gengo_diagnostic_msgs.KeyValue) (proto_diagnostic_msgs.KeyValue, error) {
+func ConvertGroupState(rosMsg gengo_dynamic_reconfigure.GroupState) (proto_dynamic_reconfigure.GroupState, error) {
 
-	ret := proto_diagnostic_msgs.KeyValue{}
+	ret := proto_dynamic_reconfigure.GroupState{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert KeyValue, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert GroupState, msg is nil")
 	//}
 
-	ret.Key = rosMsg.Key
+	ret.Name = rosMsg.Name
+
+	ret.State = rosMsg.State
+
+	ret.Id = rosMsg.Id
+
+	ret.Parent = rosMsg.Parent
+
+	return ret, nil
+}
+
+func ConvertIntParameter(rosMsg gengo_dynamic_reconfigure.IntParameter) (proto_dynamic_reconfigure.IntParameter, error) {
+
+	ret := proto_dynamic_reconfigure.IntParameter{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert IntParameter, msg is nil")
+	//}
+
+	ret.Name = rosMsg.Name
+
+	ret.Value = rosMsg.Value
+
+	return ret, nil
+}
+
+func ConvertSensorLevels(rosMsg gengo_dynamic_reconfigure.SensorLevels) (proto_dynamic_reconfigure.SensorLevels, error) {
+
+	ret := proto_dynamic_reconfigure.SensorLevels{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert SensorLevels, msg is nil")
+	//}
+
+	return ret, nil
+}
+
+func ConvertBoolParameter(rosMsg gengo_dynamic_reconfigure.BoolParameter) (proto_dynamic_reconfigure.BoolParameter, error) {
+
+	ret := proto_dynamic_reconfigure.BoolParameter{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert BoolParameter, msg is nil")
+	//}
+
+	ret.Name = rosMsg.Name
 
 	ret.Value = rosMsg.Value
 
@@ -1807,88 +1637,6 @@ func ConvertConfig(rosMsg gengo_dynamic_reconfigure.Config) (proto_dynamic_recon
 	return ret, nil
 }
 
-func ConvertGroup(rosMsg gengo_dynamic_reconfigure.Group) (proto_dynamic_reconfigure.Group, error) {
-
-	ret := proto_dynamic_reconfigure.Group{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Group, msg is nil")
-	//}
-
-	var err error
-
-	ret.Name = rosMsg.Name
-
-	ret.Type = rosMsg.Type
-
-	for _, m := range rosMsg.Parameters {
-		c, err := ConvertParamDescription(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Parameters = append(ret.Parameters, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Parent = rosMsg.Parent
-
-	ret.Id = rosMsg.Id
-
-	return ret, nil
-}
-
-func ConvertGroupState(rosMsg gengo_dynamic_reconfigure.GroupState) (proto_dynamic_reconfigure.GroupState, error) {
-
-	ret := proto_dynamic_reconfigure.GroupState{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert GroupState, msg is nil")
-	//}
-
-	ret.Name = rosMsg.Name
-
-	ret.State = rosMsg.State
-
-	ret.Id = rosMsg.Id
-
-	ret.Parent = rosMsg.Parent
-
-	return ret, nil
-}
-
-func ConvertIntParameter(rosMsg gengo_dynamic_reconfigure.IntParameter) (proto_dynamic_reconfigure.IntParameter, error) {
-
-	ret := proto_dynamic_reconfigure.IntParameter{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IntParameter, msg is nil")
-	//}
-
-	ret.Name = rosMsg.Name
-
-	ret.Value = rosMsg.Value
-
-	return ret, nil
-}
-
-func ConvertBoolParameter(rosMsg gengo_dynamic_reconfigure.BoolParameter) (proto_dynamic_reconfigure.BoolParameter, error) {
-
-	ret := proto_dynamic_reconfigure.BoolParameter{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert BoolParameter, msg is nil")
-	//}
-
-	ret.Name = rosMsg.Name
-
-	ret.Value = rosMsg.Value
-
-	return ret, nil
-}
-
 func ConvertConfigDescription(rosMsg gengo_dynamic_reconfigure.ConfigDescription) (proto_dynamic_reconfigure.ConfigDescription, error) {
 
 	ret := proto_dynamic_reconfigure.ConfigDescription{}
@@ -1950,6 +1698,39 @@ func ConvertDoubleParameter(rosMsg gengo_dynamic_reconfigure.DoubleParameter) (p
 	return ret, nil
 }
 
+func ConvertGroup(rosMsg gengo_dynamic_reconfigure.Group) (proto_dynamic_reconfigure.Group, error) {
+
+	ret := proto_dynamic_reconfigure.Group{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Group, msg is nil")
+	//}
+
+	var err error
+
+	ret.Name = rosMsg.Name
+
+	ret.Type = rosMsg.Type
+
+	for _, m := range rosMsg.Parameters {
+		c, err := ConvertParamDescription(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Parameters = append(ret.Parameters, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Parent = rosMsg.Parent
+
+	ret.Id = rosMsg.Id
+
+	return ret, nil
+}
+
 func ConvertParamDescription(rosMsg gengo_dynamic_reconfigure.ParamDescription) (proto_dynamic_reconfigure.ParamDescription, error) {
 
 	ret := proto_dynamic_reconfigure.ParamDescription{}
@@ -1971,17 +1752,6 @@ func ConvertParamDescription(rosMsg gengo_dynamic_reconfigure.ParamDescription) 
 	return ret, nil
 }
 
-func ConvertSensorLevels(rosMsg gengo_dynamic_reconfigure.SensorLevels) (proto_dynamic_reconfigure.SensorLevels, error) {
-
-	ret := proto_dynamic_reconfigure.SensorLevels{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert SensorLevels, msg is nil")
-	//}
-
-	return ret, nil
-}
-
 func ConvertStrParameter(rosMsg gengo_dynamic_reconfigure.StrParameter) (proto_dynamic_reconfigure.StrParameter, error) {
 
 	ret := proto_dynamic_reconfigure.StrParameter{}
@@ -1997,12 +1767,145 @@ func ConvertStrParameter(rosMsg gengo_dynamic_reconfigure.StrParameter) (proto_d
 	return ret, nil
 }
 
-func ConvertDetectionInfo(rosMsg gengo_find_object_2d.DetectionInfo) (proto_find_object_2d.DetectionInfo, error) {
+func ConvertAccelWithCovariance(rosMsg gengo_geometry_msgs.AccelWithCovariance) (proto_geometry_msgs.AccelWithCovariance, error) {
 
-	ret := proto_find_object_2d.DetectionInfo{}
+	ret := proto_geometry_msgs.AccelWithCovariance{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert DetectionInfo, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert AccelWithCovariance, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertAccel(rosMsg.Accel)
+	ret.Accel = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]float64, 0, len(rosMsg.Covariance))
+	for _, m := range rosMsg.Covariance {
+		t1 = append(t1, m)
+	}
+
+	ret.Covariance = append(ret.Covariance, t1...)
+
+	return ret, nil
+}
+
+func ConvertPolygon(rosMsg gengo_geometry_msgs.Polygon) (proto_geometry_msgs.Polygon, error) {
+
+	ret := proto_geometry_msgs.Polygon{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Polygon, msg is nil")
+	//}
+
+	var err error
+
+	for _, m := range rosMsg.Points {
+		c, err := ConvertPoint32(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Points = append(ret.Points, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertPose(rosMsg gengo_geometry_msgs.Pose) (proto_geometry_msgs.Pose, error) {
+
+	ret := proto_geometry_msgs.Pose{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Pose, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertPoint(rosMsg.Position)
+	ret.Position = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertQuaternion(rosMsg.Orientation)
+	ret.Orientation = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertPoseWithCovariance(rosMsg gengo_geometry_msgs.PoseWithCovariance) (proto_geometry_msgs.PoseWithCovariance, error) {
+
+	ret := proto_geometry_msgs.PoseWithCovariance{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PoseWithCovariance, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertPose(rosMsg.Pose)
+	ret.Pose = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]float64, 0, len(rosMsg.Covariance))
+	for _, m := range rosMsg.Covariance {
+		t1 = append(t1, m)
+	}
+
+	ret.Covariance = append(ret.Covariance, t1...)
+
+	return ret, nil
+}
+
+func ConvertTransform(rosMsg gengo_geometry_msgs.Transform) (proto_geometry_msgs.Transform, error) {
+
+	ret := proto_geometry_msgs.Transform{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Transform, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertVector3(rosMsg.Translation)
+	ret.Translation = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertQuaternion(rosMsg.Rotation)
+	ret.Rotation = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTwistStamped(rosMsg gengo_geometry_msgs.TwistStamped) (proto_geometry_msgs.TwistStamped, error) {
+
+	ret := proto_geometry_msgs.TwistStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwistStamped, msg is nil")
 	//}
 
 	var err error
@@ -2014,200 +1917,8 @@ func ConvertDetectionInfo(rosMsg gengo_find_object_2d.DetectionInfo) (proto_find
 		return ret, err
 	}
 
-	for _, m := range rosMsg.Ids {
-		c, err := ConvertInt32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Ids = append(ret.Ids, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Widths {
-		c, err := ConvertInt32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Widths = append(ret.Widths, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Heights {
-		c, err := ConvertInt32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Heights = append(ret.Heights, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.FilePaths {
-		c, err := ConvertString(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.FilePaths = append(ret.FilePaths, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Inliers {
-		c, err := ConvertInt32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Inliers = append(ret.Inliers, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Outliers {
-		c, err := ConvertInt32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Outliers = append(ret.Outliers, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Homographies {
-		c, err := ConvertFloat32MultiArray(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Homographies = append(ret.Homographies, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertObjectsStamped(rosMsg gengo_find_object_2d.ObjectsStamped) (proto_find_object_2d.ObjectsStamped, error) {
-
-	ret := proto_find_object_2d.ObjectsStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ObjectsStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertFloat32MultiArray(rosMsg.Objects)
-	ret.Objects = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertAccel(rosMsg gengo_geometry_msgs.Accel) (proto_geometry_msgs.Accel, error) {
-
-	ret := proto_geometry_msgs.Accel{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Accel, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertVector3(rosMsg.Linear)
-	ret.Linear = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertVector3(rosMsg.Angular)
-	ret.Angular = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPoint(rosMsg gengo_geometry_msgs.Point) (proto_geometry_msgs.Point, error) {
-
-	ret := proto_geometry_msgs.Point{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	ret.Z = rosMsg.Z
-
-	return ret, nil
-}
-
-func ConvertPoint32(rosMsg gengo_geometry_msgs.Point32) (proto_geometry_msgs.Point32, error) {
-
-	ret := proto_geometry_msgs.Point32{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point32, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	ret.Z = rosMsg.Z
-
-	return ret, nil
-}
-
-func ConvertPointStamped(rosMsg gengo_geometry_msgs.PointStamped) (proto_geometry_msgs.PointStamped, error) {
-
-	ret := proto_geometry_msgs.PointStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PointStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertPoint(rosMsg.Point)
-	ret.Point = &t1
+	t1, err := ConvertTwist(rosMsg.Twist)
+	ret.Twist = &t1
 
 	if err != nil {
 		return ret, err
@@ -2243,12 +1954,73 @@ func ConvertTwist(rosMsg gengo_geometry_msgs.Twist) (proto_geometry_msgs.Twist, 
 	return ret, nil
 }
 
-func ConvertTwistWithCovarianceStamped(rosMsg gengo_geometry_msgs.TwistWithCovarianceStamped) (proto_geometry_msgs.TwistWithCovarianceStamped, error) {
+func ConvertTwistWithCovariance(rosMsg gengo_geometry_msgs.TwistWithCovariance) (proto_geometry_msgs.TwistWithCovariance, error) {
 
-	ret := proto_geometry_msgs.TwistWithCovarianceStamped{}
+	ret := proto_geometry_msgs.TwistWithCovariance{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwistWithCovarianceStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert TwistWithCovariance, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertTwist(rosMsg.Twist)
+	ret.Twist = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]float64, 0, len(rosMsg.Covariance))
+	for _, m := range rosMsg.Covariance {
+		t1 = append(t1, m)
+	}
+
+	ret.Covariance = append(ret.Covariance, t1...)
+
+	return ret, nil
+}
+
+func ConvertPoint(rosMsg gengo_geometry_msgs.Point) (proto_geometry_msgs.Point, error) {
+
+	ret := proto_geometry_msgs.Point{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Point, msg is nil")
+	//}
+
+	ret.X = rosMsg.X
+
+	ret.Y = rosMsg.Y
+
+	ret.Z = rosMsg.Z
+
+	return ret, nil
+}
+
+func ConvertPose2D(rosMsg gengo_geometry_msgs.Pose2D) (proto_geometry_msgs.Pose2D, error) {
+
+	ret := proto_geometry_msgs.Pose2D{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Pose2D, msg is nil")
+	//}
+
+	ret.X = rosMsg.X
+
+	ret.Y = rosMsg.Y
+
+	ret.Theta = rosMsg.Theta
+
+	return ret, nil
+}
+
+func ConvertPoseWithCovarianceStamped(rosMsg gengo_geometry_msgs.PoseWithCovarianceStamped) (proto_geometry_msgs.PoseWithCovarianceStamped, error) {
+
+	ret := proto_geometry_msgs.PoseWithCovarianceStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PoseWithCovarianceStamped, msg is nil")
 	//}
 
 	var err error
@@ -2260,8 +2032,37 @@ func ConvertTwistWithCovarianceStamped(rosMsg gengo_geometry_msgs.TwistWithCovar
 		return ret, err
 	}
 
-	t1, err := ConvertTwistWithCovariance(rosMsg.Twist)
-	ret.Twist = &t1
+	t1, err := ConvertPoseWithCovariance(rosMsg.Pose)
+	ret.Pose = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTransformStamped(rosMsg gengo_geometry_msgs.TransformStamped) (proto_geometry_msgs.TransformStamped, error) {
+
+	ret := proto_geometry_msgs.TransformStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TransformStamped, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.ChildFrameId = rosMsg.ChildFrameId
+
+	t2, err := ConvertTransform(rosMsg.Transform)
+	ret.Transform = &t2
 
 	if err != nil {
 		return ret, err
@@ -2297,69 +2098,25 @@ func ConvertVector3Stamped(rosMsg gengo_geometry_msgs.Vector3Stamped) (proto_geo
 	return ret, nil
 }
 
-func ConvertPolygonStamped(rosMsg gengo_geometry_msgs.PolygonStamped) (proto_geometry_msgs.PolygonStamped, error) {
+func ConvertWrench(rosMsg gengo_geometry_msgs.Wrench) (proto_geometry_msgs.Wrench, error) {
 
-	ret := proto_geometry_msgs.PolygonStamped{}
+	ret := proto_geometry_msgs.Wrench{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PolygonStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Wrench, msg is nil")
 	//}
 
 	var err error
 
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
+	t0, err := ConvertVector3(rosMsg.Force)
+	ret.Force = &t0
 
 	if err != nil {
 		return ret, err
 	}
 
-	t1, err := ConvertPolygon(rosMsg.Polygon)
-	ret.Polygon = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertVector3(rosMsg gengo_geometry_msgs.Vector3) (proto_geometry_msgs.Vector3, error) {
-
-	ret := proto_geometry_msgs.Vector3{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Vector3, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	ret.Z = rosMsg.Z
-
-	return ret, nil
-}
-
-func ConvertWrenchStamped(rosMsg gengo_geometry_msgs.WrenchStamped) (proto_geometry_msgs.WrenchStamped, error) {
-
-	ret := proto_geometry_msgs.WrenchStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert WrenchStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertWrench(rosMsg.Wrench)
-	ret.Wrench = &t1
+	t1, err := ConvertVector3(rosMsg.Torque)
+	ret.Torque = &t1
 
 	if err != nil {
 		return ret, err
@@ -2395,12 +2152,29 @@ func ConvertAccelWithCovarianceStamped(rosMsg gengo_geometry_msgs.AccelWithCovar
 	return ret, nil
 }
 
-func ConvertInertiaStamped(rosMsg gengo_geometry_msgs.InertiaStamped) (proto_geometry_msgs.InertiaStamped, error) {
+func ConvertPoint32(rosMsg gengo_geometry_msgs.Point32) (proto_geometry_msgs.Point32, error) {
 
-	ret := proto_geometry_msgs.InertiaStamped{}
+	ret := proto_geometry_msgs.Point32{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert InertiaStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Point32, msg is nil")
+	//}
+
+	ret.X = rosMsg.X
+
+	ret.Y = rosMsg.Y
+
+	ret.Z = rosMsg.Z
+
+	return ret, nil
+}
+
+func ConvertPolygonStamped(rosMsg gengo_geometry_msgs.PolygonStamped) (proto_geometry_msgs.PolygonStamped, error) {
+
+	ret := proto_geometry_msgs.PolygonStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PolygonStamped, msg is nil")
 	//}
 
 	var err error
@@ -2412,8 +2186,8 @@ func ConvertInertiaStamped(rosMsg gengo_geometry_msgs.InertiaStamped) (proto_geo
 		return ret, err
 	}
 
-	t1, err := ConvertInertia(rosMsg.Inertia)
-	ret.Inertia = &t1
+	t1, err := ConvertPolygon(rosMsg.Polygon)
+	ret.Polygon = &t1
 
 	if err != nil {
 		return ret, err
@@ -2422,23 +2196,98 @@ func ConvertInertiaStamped(rosMsg gengo_geometry_msgs.InertiaStamped) (proto_geo
 	return ret, nil
 }
 
-func ConvertPolygon(rosMsg gengo_geometry_msgs.Polygon) (proto_geometry_msgs.Polygon, error) {
+func ConvertQuaternionStamped(rosMsg gengo_geometry_msgs.QuaternionStamped) (proto_geometry_msgs.QuaternionStamped, error) {
 
-	ret := proto_geometry_msgs.Polygon{}
+	ret := proto_geometry_msgs.QuaternionStamped{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Polygon, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert QuaternionStamped, msg is nil")
 	//}
 
 	var err error
 
-	for _, m := range rosMsg.Points {
-		c, err := ConvertPoint32(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Points = append(ret.Points, &c)
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
 	}
+
+	t1, err := ConvertQuaternion(rosMsg.Quaternion)
+	ret.Quaternion = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertQuaternion(rosMsg gengo_geometry_msgs.Quaternion) (proto_geometry_msgs.Quaternion, error) {
+
+	ret := proto_geometry_msgs.Quaternion{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Quaternion, msg is nil")
+	//}
+
+	ret.X = rosMsg.X
+
+	ret.Y = rosMsg.Y
+
+	ret.Z = rosMsg.Z
+
+	ret.W = rosMsg.W
+
+	return ret, nil
+}
+
+func ConvertAccelStamped(rosMsg gengo_geometry_msgs.AccelStamped) (proto_geometry_msgs.AccelStamped, error) {
+
+	ret := proto_geometry_msgs.AccelStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert AccelStamped, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertAccel(rosMsg.Accel)
+	ret.Accel = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertPointStamped(rosMsg gengo_geometry_msgs.PointStamped) (proto_geometry_msgs.PointStamped, error) {
+
+	ret := proto_geometry_msgs.PointStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PointStamped, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertPoint(rosMsg.Point)
+	ret.Point = &t1
 
 	if err != nil {
 		return ret, err
@@ -2479,39 +2328,12 @@ func ConvertPoseArray(rosMsg gengo_geometry_msgs.PoseArray) (proto_geometry_msgs
 	return ret, nil
 }
 
-func ConvertPoseWithCovariance(rosMsg gengo_geometry_msgs.PoseWithCovariance) (proto_geometry_msgs.PoseWithCovariance, error) {
+func ConvertPoseStamped(rosMsg gengo_geometry_msgs.PoseStamped) (proto_geometry_msgs.PoseStamped, error) {
 
-	ret := proto_geometry_msgs.PoseWithCovariance{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PoseWithCovariance, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertPose(rosMsg.Pose)
-	ret.Pose = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float64, 0, len(rosMsg.Covariance))
-	for _, m := range rosMsg.Covariance {
-		t1 = append(t1, m)
-	}
-
-	ret.Covariance = append(ret.Covariance, t1...)
-
-	return ret, nil
-}
-
-func ConvertPoseWithCovarianceStamped(rosMsg gengo_geometry_msgs.PoseWithCovarianceStamped) (proto_geometry_msgs.PoseWithCovarianceStamped, error) {
-
-	ret := proto_geometry_msgs.PoseWithCovarianceStamped{}
+	ret := proto_geometry_msgs.PoseStamped{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PoseWithCovarianceStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert PoseStamped, msg is nil")
 	//}
 
 	var err error
@@ -2523,143 +2345,8 @@ func ConvertPoseWithCovarianceStamped(rosMsg gengo_geometry_msgs.PoseWithCovaria
 		return ret, err
 	}
 
-	t1, err := ConvertPoseWithCovariance(rosMsg.Pose)
+	t1, err := ConvertPose(rosMsg.Pose)
 	ret.Pose = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertAccelWithCovariance(rosMsg gengo_geometry_msgs.AccelWithCovariance) (proto_geometry_msgs.AccelWithCovariance, error) {
-
-	ret := proto_geometry_msgs.AccelWithCovariance{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert AccelWithCovariance, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertAccel(rosMsg.Accel)
-	ret.Accel = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float64, 0, len(rosMsg.Covariance))
-	for _, m := range rosMsg.Covariance {
-		t1 = append(t1, m)
-	}
-
-	ret.Covariance = append(ret.Covariance, t1...)
-
-	return ret, nil
-}
-
-func ConvertQuaternionStamped(rosMsg gengo_geometry_msgs.QuaternionStamped) (proto_geometry_msgs.QuaternionStamped, error) {
-
-	ret := proto_geometry_msgs.QuaternionStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert QuaternionStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertQuaternion(rosMsg.Quaternion)
-	ret.Quaternion = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertTransform(rosMsg gengo_geometry_msgs.Transform) (proto_geometry_msgs.Transform, error) {
-
-	ret := proto_geometry_msgs.Transform{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Transform, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertVector3(rosMsg.Translation)
-	ret.Translation = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertQuaternion(rosMsg.Rotation)
-	ret.Rotation = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertWrench(rosMsg gengo_geometry_msgs.Wrench) (proto_geometry_msgs.Wrench, error) {
-
-	ret := proto_geometry_msgs.Wrench{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Wrench, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertVector3(rosMsg.Force)
-	ret.Force = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertVector3(rosMsg.Torque)
-	ret.Torque = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertAccelStamped(rosMsg gengo_geometry_msgs.AccelStamped) (proto_geometry_msgs.AccelStamped, error) {
-
-	ret := proto_geometry_msgs.AccelStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert AccelStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertAccel(rosMsg.Accel)
-	ret.Accel = &t1
 
 	if err != nil {
 		return ret, err
@@ -2702,12 +2389,12 @@ func ConvertInertia(rosMsg gengo_geometry_msgs.Inertia) (proto_geometry_msgs.Ine
 	return ret, nil
 }
 
-func ConvertPoseStamped(rosMsg gengo_geometry_msgs.PoseStamped) (proto_geometry_msgs.PoseStamped, error) {
+func ConvertWrenchStamped(rosMsg gengo_geometry_msgs.WrenchStamped) (proto_geometry_msgs.WrenchStamped, error) {
 
-	ret := proto_geometry_msgs.PoseStamped{}
+	ret := proto_geometry_msgs.WrenchStamped{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PoseStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert WrenchStamped, msg is nil")
 	//}
 
 	var err error
@@ -2719,8 +2406,8 @@ func ConvertPoseStamped(rosMsg gengo_geometry_msgs.PoseStamped) (proto_geometry_
 		return ret, err
 	}
 
-	t1, err := ConvertPose(rosMsg.Pose)
-	ret.Pose = &t1
+	t1, err := ConvertWrench(rosMsg.Wrench)
+	ret.Wrench = &t1
 
 	if err != nil {
 		return ret, err
@@ -2729,12 +2416,93 @@ func ConvertPoseStamped(rosMsg gengo_geometry_msgs.PoseStamped) (proto_geometry_
 	return ret, nil
 }
 
-func ConvertQuaternion(rosMsg gengo_geometry_msgs.Quaternion) (proto_geometry_msgs.Quaternion, error) {
+func ConvertAccel(rosMsg gengo_geometry_msgs.Accel) (proto_geometry_msgs.Accel, error) {
 
-	ret := proto_geometry_msgs.Quaternion{}
+	ret := proto_geometry_msgs.Accel{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Quaternion, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Accel, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertVector3(rosMsg.Linear)
+	ret.Linear = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertVector3(rosMsg.Angular)
+	ret.Angular = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertInertiaStamped(rosMsg gengo_geometry_msgs.InertiaStamped) (proto_geometry_msgs.InertiaStamped, error) {
+
+	ret := proto_geometry_msgs.InertiaStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert InertiaStamped, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertInertia(rosMsg.Inertia)
+	ret.Inertia = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertTwistWithCovarianceStamped(rosMsg gengo_geometry_msgs.TwistWithCovarianceStamped) (proto_geometry_msgs.TwistWithCovarianceStamped, error) {
+
+	ret := proto_geometry_msgs.TwistWithCovarianceStamped{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TwistWithCovarianceStamped, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertTwistWithCovariance(rosMsg.Twist)
+	ret.Twist = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertVector3(rosMsg gengo_geometry_msgs.Vector3) (proto_geometry_msgs.Vector3, error) {
+
+	ret := proto_geometry_msgs.Vector3{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Vector3, msg is nil")
 	//}
 
 	ret.X = rosMsg.X
@@ -2743,17 +2511,109 @@ func ConvertQuaternion(rosMsg gengo_geometry_msgs.Quaternion) (proto_geometry_ms
 
 	ret.Z = rosMsg.Z
 
-	ret.W = rosMsg.W
+	return ret, nil
+}
+
+func ConvertGetMapActionFeedback(rosMsg gengo_nav_msgs.GetMapActionFeedback) (proto_nav_msgs.GetMapActionFeedback, error) {
+
+	ret := proto_nav_msgs.GetMapActionFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GetMapActionFeedback, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertGetMapFeedback(rosMsg.Feedback)
+	ret.Feedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
 
 	return ret, nil
 }
 
-func ConvertTransformStamped(rosMsg gengo_geometry_msgs.TransformStamped) (proto_geometry_msgs.TransformStamped, error) {
+func ConvertGetMapActionGoal(rosMsg gengo_nav_msgs.GetMapActionGoal) (proto_nav_msgs.GetMapActionGoal, error) {
 
-	ret := proto_geometry_msgs.TransformStamped{}
+	ret := proto_nav_msgs.GetMapActionGoal{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TransformStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert GetMapActionGoal, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalID(rosMsg.GoalId)
+	ret.GoalId = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertGetMapGoal(rosMsg.Goal)
+	ret.Goal = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertMapMetaData(rosMsg gengo_nav_msgs.MapMetaData) (proto_nav_msgs.MapMetaData, error) {
+
+	ret := proto_nav_msgs.MapMetaData{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert MapMetaData, msg is nil")
+	//}
+
+	var err error
+
+	ret.Resolution = rosMsg.Resolution
+
+	ret.Width = rosMsg.Width
+
+	ret.Height = rosMsg.Height
+
+	t4, err := ConvertPose(rosMsg.Origin)
+	ret.Origin = &t4
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertOdometry(rosMsg gengo_nav_msgs.Odometry) (proto_nav_msgs.Odometry, error) {
+
+	ret := proto_nav_msgs.Odometry{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Odometry, msg is nil")
 	//}
 
 	var err error
@@ -2767,8 +2627,15 @@ func ConvertTransformStamped(rosMsg gengo_geometry_msgs.TransformStamped) (proto
 
 	ret.ChildFrameId = rosMsg.ChildFrameId
 
-	t2, err := ConvertTransform(rosMsg.Transform)
-	ret.Transform = &t2
+	t2, err := ConvertPoseWithCovariance(rosMsg.Pose)
+	ret.Pose = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	t3, err := ConvertTwistWithCovariance(rosMsg.Twist)
+	ret.Twist = &t3
 
 	if err != nil {
 		return ret, err
@@ -2777,83 +2644,254 @@ func ConvertTransformStamped(rosMsg gengo_geometry_msgs.TransformStamped) (proto
 	return ret, nil
 }
 
-func ConvertTwistWithCovariance(rosMsg gengo_geometry_msgs.TwistWithCovariance) (proto_geometry_msgs.TwistWithCovariance, error) {
+func ConvertGetMapAction(rosMsg gengo_nav_msgs.GetMapAction) (proto_nav_msgs.GetMapAction, error) {
 
-	ret := proto_geometry_msgs.TwistWithCovariance{}
+	ret := proto_nav_msgs.GetMapAction{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwistWithCovariance, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert GetMapAction, msg is nil")
 	//}
 
 	var err error
 
-	t0, err := ConvertTwist(rosMsg.Twist)
-	ret.Twist = &t0
+	t0, err := ConvertGetMapActionGoal(rosMsg.ActionGoal)
+	ret.ActionGoal = &t0
 
 	if err != nil {
 		return ret, err
 	}
 
-	t1 := make([]float64, 0, len(rosMsg.Covariance))
-	for _, m := range rosMsg.Covariance {
+	t1, err := ConvertGetMapActionResult(rosMsg.ActionResult)
+	ret.ActionResult = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertGetMapActionFeedback(rosMsg.ActionFeedback)
+	ret.ActionFeedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertGetMapActionResult(rosMsg gengo_nav_msgs.GetMapActionResult) (proto_nav_msgs.GetMapActionResult, error) {
+
+	ret := proto_nav_msgs.GetMapActionResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GetMapActionResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertGoalStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertGetMapResult(rosMsg.Result)
+	ret.Result = &t2
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertGetMapFeedback(rosMsg gengo_nav_msgs.GetMapFeedback) (proto_nav_msgs.GetMapFeedback, error) {
+
+	ret := proto_nav_msgs.GetMapFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GetMapFeedback, msg is nil")
+	//}
+
+	return ret, nil
+}
+
+func ConvertGetMapGoal(rosMsg gengo_nav_msgs.GetMapGoal) (proto_nav_msgs.GetMapGoal, error) {
+
+	ret := proto_nav_msgs.GetMapGoal{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GetMapGoal, msg is nil")
+	//}
+
+	return ret, nil
+}
+
+func ConvertGetMapResult(rosMsg gengo_nav_msgs.GetMapResult) (proto_nav_msgs.GetMapResult, error) {
+
+	ret := proto_nav_msgs.GetMapResult{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GetMapResult, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertOccupancyGrid(rosMsg.Map)
+	ret.Map = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertGridCells(rosMsg gengo_nav_msgs.GridCells) (proto_nav_msgs.GridCells, error) {
+
+	ret := proto_nav_msgs.GridCells{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert GridCells, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.CellWidth = rosMsg.CellWidth
+
+	ret.CellHeight = rosMsg.CellHeight
+
+	for _, m := range rosMsg.Cells {
+		c, err := ConvertPoint(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Cells = append(ret.Cells, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertOccupancyGrid(rosMsg gengo_nav_msgs.OccupancyGrid) (proto_nav_msgs.OccupancyGrid, error) {
+
+	ret := proto_nav_msgs.OccupancyGrid{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert OccupancyGrid, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertMapMetaData(rosMsg.Info)
+	ret.Info = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2 := make([]int32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := int32(m)
+		t2 = append(t2, a)
+	}
+
+	ret.Data = append(ret.Data, t2...)
+
+	return ret, nil
+}
+
+func ConvertPath(rosMsg gengo_nav_msgs.Path) (proto_nav_msgs.Path, error) {
+
+	ret := proto_nav_msgs.Path{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Path, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	for _, m := range rosMsg.Poses {
+		c, err := ConvertPoseStamped(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Poses = append(ret.Poses, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertStatisticsNames(rosMsg gengo_plotjuggler_msgs.StatisticsNames) (proto_plotjuggler_msgs.StatisticsNames, error) {
+
+	ret := proto_plotjuggler_msgs.StatisticsNames{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert StatisticsNames, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]string, 0, len(rosMsg.Names))
+	for _, m := range rosMsg.Names {
 		t1 = append(t1, m)
 	}
 
-	ret.Covariance = append(ret.Covariance, t1...)
+	ret.Names = append(ret.Names, t1...)
+
+	ret.NamesVersion = rosMsg.NamesVersion
 
 	return ret, nil
 }
 
-func ConvertPose(rosMsg gengo_geometry_msgs.Pose) (proto_geometry_msgs.Pose, error) {
+func ConvertStatisticsValues(rosMsg gengo_plotjuggler_msgs.StatisticsValues) (proto_plotjuggler_msgs.StatisticsValues, error) {
 
-	ret := proto_geometry_msgs.Pose{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Pose, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertPoint(rosMsg.Position)
-	ret.Position = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertQuaternion(rosMsg.Orientation)
-	ret.Orientation = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPose2D(rosMsg gengo_geometry_msgs.Pose2D) (proto_geometry_msgs.Pose2D, error) {
-
-	ret := proto_geometry_msgs.Pose2D{}
+	ret := proto_plotjuggler_msgs.StatisticsValues{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Pose2D, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	ret.Theta = rosMsg.Theta
-
-	return ret, nil
-}
-
-func ConvertTwistStamped(rosMsg gengo_geometry_msgs.TwistStamped) (proto_geometry_msgs.TwistStamped, error) {
-
-	ret := proto_geometry_msgs.TwistStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TwistStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert StatisticsValues, msg is nil")
 	//}
 
 	var err error
@@ -2865,122 +2903,53 @@ func ConvertTwistStamped(rosMsg gengo_geometry_msgs.TwistStamped) (proto_geometr
 		return ret, err
 	}
 
-	t1, err := ConvertTwist(rosMsg.Twist)
-	ret.Twist = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertOptimalControlResult(rosMsg gengo_mpc_local_planner_msgs.OptimalControlResult) (proto_mpc_local_planner_msgs.OptimalControlResult, error) {
-
-	ret := proto_mpc_local_planner_msgs.OptimalControlResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert OptimalControlResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.DimStates = rosMsg.DimStates
-
-	ret.DimControls = rosMsg.DimControls
-
-	t3 := make([]float64, 0, len(rosMsg.TimeStates))
-	for _, m := range rosMsg.TimeStates {
-		t3 = append(t3, m)
-	}
-
-	ret.TimeStates = append(ret.TimeStates, t3...)
-
-	t4 := make([]float64, 0, len(rosMsg.States))
-	for _, m := range rosMsg.States {
-		t4 = append(t4, m)
-	}
-
-	ret.States = append(ret.States, t4...)
-
-	t5 := make([]float64, 0, len(rosMsg.TimeControls))
-	for _, m := range rosMsg.TimeControls {
-		t5 = append(t5, m)
-	}
-
-	ret.TimeControls = append(ret.TimeControls, t5...)
-
-	t6 := make([]float64, 0, len(rosMsg.Controls))
-	for _, m := range rosMsg.Controls {
-		t6 = append(t6, m)
-	}
-
-	ret.Controls = append(ret.Controls, t6...)
-
-	ret.OptimalSolutionFound = rosMsg.OptimalSolutionFound
-
-	ret.CpuTime = rosMsg.CpuTime
-
-	return ret, nil
-}
-
-func ConvertStateFeedback(rosMsg gengo_mpc_local_planner_msgs.StateFeedback) (proto_mpc_local_planner_msgs.StateFeedback, error) {
-
-	ret := proto_mpc_local_planner_msgs.StateFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert StateFeedback, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float64, 0, len(rosMsg.State))
-	for _, m := range rosMsg.State {
+	t1 := make([]float64, 0, len(rosMsg.Values))
+	for _, m := range rosMsg.Values {
 		t1 = append(t1, m)
 	}
 
-	ret.State = append(ret.State, t1...)
+	ret.Values = append(ret.Values, t1...)
+
+	ret.NamesVersion = rosMsg.NamesVersion
 
 	return ret, nil
 }
 
-func ConvertPoint2DArrayStamped(rosMsg gengo_opencv_apps.Point2DArrayStamped) (proto_opencv_apps.Point2DArrayStamped, error) {
+func ConvertDataPoint(rosMsg gengo_plotjuggler_msgs.DataPoint) (proto_plotjuggler_msgs.DataPoint, error) {
 
-	ret := proto_opencv_apps.Point2DArrayStamped{}
+	ret := proto_plotjuggler_msgs.DataPoint{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point2DArrayStamped, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert DataPoint, msg is nil")
+	//}
+
+	ret.NameIndex = uint32(rosMsg.NameIndex)
+
+	ret.Stamp = rosMsg.Stamp
+
+	ret.Value = rosMsg.Value
+
+	return ret, nil
+}
+
+func ConvertDataPoints(rosMsg gengo_plotjuggler_msgs.DataPoints) (proto_plotjuggler_msgs.DataPoints, error) {
+
+	ret := proto_plotjuggler_msgs.DataPoints{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert DataPoints, msg is nil")
 	//}
 
 	var err error
 
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
+	ret.DictionaryUuid = rosMsg.DictionaryUuid
 
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Points {
-		c, err := ConvertPoint2D(m)
+	for _, m := range rosMsg.Samples {
+		c, err := ConvertDataPoint(m)
 		if err != nil {
 			return ret, err
 		}
-		ret.Points = append(ret.Points, &c)
+		ret.Samples = append(ret.Samples, &c)
 	}
 
 	if err != nil {
@@ -2990,851 +2959,22 @@ func ConvertPoint2DArrayStamped(rosMsg gengo_opencv_apps.Point2DArrayStamped) (p
 	return ret, nil
 }
 
-func ConvertRotatedRectArrayStamped(rosMsg gengo_opencv_apps.RotatedRectArrayStamped) (proto_opencv_apps.RotatedRectArrayStamped, error) {
+func ConvertDictionary(rosMsg gengo_plotjuggler_msgs.Dictionary) (proto_plotjuggler_msgs.Dictionary, error) {
 
-	ret := proto_opencv_apps.RotatedRectArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RotatedRectArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Rects {
-		c, err := ConvertRotatedRect(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Rects = append(ret.Rects, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertSize(rosMsg gengo_opencv_apps.Size) (proto_opencv_apps.Size, error) {
-
-	ret := proto_opencv_apps.Size{}
+	ret := proto_plotjuggler_msgs.Dictionary{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Size, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Dictionary, msg is nil")
 	//}
 
-	ret.Width = rosMsg.Width
+	ret.DictionaryUuid = rosMsg.DictionaryUuid
 
-	ret.Height = rosMsg.Height
-
-	return ret, nil
-}
-
-func ConvertCircleArray(rosMsg gengo_opencv_apps.CircleArray) (proto_opencv_apps.CircleArray, error) {
-
-	ret := proto_opencv_apps.CircleArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert CircleArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Circles {
-		c, err := ConvertCircle(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Circles = append(ret.Circles, &c)
+	t1 := make([]string, 0, len(rosMsg.Names))
+	for _, m := range rosMsg.Names {
+		t1 = append(t1, m)
 	}
 
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFace(rosMsg gengo_opencv_apps.Face) (proto_opencv_apps.Face, error) {
-
-	ret := proto_opencv_apps.Face{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Face, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertRect(rosMsg.Face)
-	ret.Face = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Eyes {
-		c, err := ConvertRect(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Eyes = append(ret.Eyes, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Label = rosMsg.Label
-
-	ret.Confidence = rosMsg.Confidence
-
-	return ret, nil
-}
-
-func ConvertFlow(rosMsg gengo_opencv_apps.Flow) (proto_opencv_apps.Flow, error) {
-
-	ret := proto_opencv_apps.Flow{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Flow, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertPoint2D(rosMsg.Point)
-	ret.Point = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertPoint2D(rosMsg.Velocity)
-	ret.Velocity = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFlowArrayStamped(rosMsg gengo_opencv_apps.FlowArrayStamped) (proto_opencv_apps.FlowArrayStamped, error) {
-
-	ret := proto_opencv_apps.FlowArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FlowArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Flow {
-		c, err := ConvertFlow(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Flow = append(ret.Flow, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertRectArrayStamped(rosMsg gengo_opencv_apps.RectArrayStamped) (proto_opencv_apps.RectArrayStamped, error) {
-
-	ret := proto_opencv_apps.RectArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RectArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Rects {
-		c, err := ConvertRect(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Rects = append(ret.Rects, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertRotatedRect(rosMsg gengo_opencv_apps.RotatedRect) (proto_opencv_apps.RotatedRect, error) {
-
-	ret := proto_opencv_apps.RotatedRect{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RotatedRect, msg is nil")
-	//}
-
-	var err error
-
-	ret.Angle = rosMsg.Angle
-
-	t1, err := ConvertPoint2D(rosMsg.Center)
-	ret.Center = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertSize(rosMsg.Size)
-	ret.Size = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFaceArray(rosMsg gengo_opencv_apps.FaceArray) (proto_opencv_apps.FaceArray, error) {
-
-	ret := proto_opencv_apps.FaceArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FaceArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Faces {
-		c, err := ConvertFace(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Faces = append(ret.Faces, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertMoment(rosMsg gengo_opencv_apps.Moment) (proto_opencv_apps.Moment, error) {
-
-	ret := proto_opencv_apps.Moment{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Moment, msg is nil")
-	//}
-
-	var err error
-
-	ret.M00 = rosMsg.M00
-
-	ret.M10 = rosMsg.M10
-
-	ret.M01 = rosMsg.M01
-
-	ret.M20 = rosMsg.M20
-
-	ret.M11 = rosMsg.M11
-
-	ret.M02 = rosMsg.M02
-
-	ret.M30 = rosMsg.M30
-
-	ret.M21 = rosMsg.M21
-
-	ret.M12 = rosMsg.M12
-
-	ret.M03 = rosMsg.M03
-
-	ret.Mu20 = rosMsg.Mu20
-
-	ret.Mu11 = rosMsg.Mu11
-
-	ret.Mu02 = rosMsg.Mu02
-
-	ret.Mu30 = rosMsg.Mu30
-
-	ret.Mu21 = rosMsg.Mu21
-
-	ret.Mu12 = rosMsg.Mu12
-
-	ret.Mu03 = rosMsg.Mu03
-
-	ret.Nu20 = rosMsg.Nu20
-
-	ret.Nu11 = rosMsg.Nu11
-
-	ret.Nu02 = rosMsg.Nu02
-
-	ret.Nu30 = rosMsg.Nu30
-
-	ret.Nu21 = rosMsg.Nu21
-
-	ret.Nu12 = rosMsg.Nu12
-
-	ret.Nu03 = rosMsg.Nu03
-
-	t24, err := ConvertPoint2D(rosMsg.Center)
-	ret.Center = &t24
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Length = rosMsg.Length
-
-	ret.Area = rosMsg.Area
-
-	return ret, nil
-}
-
-func ConvertMomentArrayStamped(rosMsg gengo_opencv_apps.MomentArrayStamped) (proto_opencv_apps.MomentArrayStamped, error) {
-
-	ret := proto_opencv_apps.MomentArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert MomentArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Moments {
-		c, err := ConvertMoment(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Moments = append(ret.Moments, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertContourArray(rosMsg gengo_opencv_apps.ContourArray) (proto_opencv_apps.ContourArray, error) {
-
-	ret := proto_opencv_apps.ContourArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ContourArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Contours {
-		c, err := ConvertContour(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Contours = append(ret.Contours, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertRect(rosMsg gengo_opencv_apps.Rect) (proto_opencv_apps.Rect, error) {
-
-	ret := proto_opencv_apps.Rect{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Rect, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	ret.Width = rosMsg.Width
-
-	ret.Height = rosMsg.Height
-
-	return ret, nil
-}
-
-func ConvertRotatedRectStamped(rosMsg gengo_opencv_apps.RotatedRectStamped) (proto_opencv_apps.RotatedRectStamped, error) {
-
-	ret := proto_opencv_apps.RotatedRectStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RotatedRectStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertRotatedRect(rosMsg.Rect)
-	ret.Rect = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFaceArrayStamped(rosMsg gengo_opencv_apps.FaceArrayStamped) (proto_opencv_apps.FaceArrayStamped, error) {
-
-	ret := proto_opencv_apps.FaceArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FaceArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Faces {
-		c, err := ConvertFace(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Faces = append(ret.Faces, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertLine(rosMsg gengo_opencv_apps.Line) (proto_opencv_apps.Line, error) {
-
-	ret := proto_opencv_apps.Line{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Line, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertPoint2D(rosMsg.Pt1)
-	ret.Pt1 = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertPoint2D(rosMsg.Pt2)
-	ret.Pt2 = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPoint2DStamped(rosMsg gengo_opencv_apps.Point2DStamped) (proto_opencv_apps.Point2DStamped, error) {
-
-	ret := proto_opencv_apps.Point2DStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point2DStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertPoint2D(rosMsg.Point)
-	ret.Point = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertCircleArrayStamped(rosMsg gengo_opencv_apps.CircleArrayStamped) (proto_opencv_apps.CircleArrayStamped, error) {
-
-	ret := proto_opencv_apps.CircleArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert CircleArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Circles {
-		c, err := ConvertCircle(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Circles = append(ret.Circles, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertLineArrayStamped(rosMsg gengo_opencv_apps.LineArrayStamped) (proto_opencv_apps.LineArrayStamped, error) {
-
-	ret := proto_opencv_apps.LineArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert LineArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Lines {
-		c, err := ConvertLine(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Lines = append(ret.Lines, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPoint2DArray(rosMsg gengo_opencv_apps.Point2DArray) (proto_opencv_apps.Point2DArray, error) {
-
-	ret := proto_opencv_apps.Point2DArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point2DArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Points {
-		c, err := ConvertPoint2D(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Points = append(ret.Points, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertRectArray(rosMsg gengo_opencv_apps.RectArray) (proto_opencv_apps.RectArray, error) {
-
-	ret := proto_opencv_apps.RectArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RectArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Rects {
-		c, err := ConvertRect(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Rects = append(ret.Rects, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertCircle(rosMsg gengo_opencv_apps.Circle) (proto_opencv_apps.Circle, error) {
-
-	ret := proto_opencv_apps.Circle{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Circle, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertPoint2D(rosMsg.Center)
-	ret.Center = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Radius = rosMsg.Radius
-
-	return ret, nil
-}
-
-func ConvertContour(rosMsg gengo_opencv_apps.Contour) (proto_opencv_apps.Contour, error) {
-
-	ret := proto_opencv_apps.Contour{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Contour, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Points {
-		c, err := ConvertPoint2D(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Points = append(ret.Points, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertContourArrayStamped(rosMsg gengo_opencv_apps.ContourArrayStamped) (proto_opencv_apps.ContourArrayStamped, error) {
-
-	ret := proto_opencv_apps.ContourArrayStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ContourArrayStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	for _, m := range rosMsg.Contours {
-		c, err := ConvertContour(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Contours = append(ret.Contours, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFlowArray(rosMsg gengo_opencv_apps.FlowArray) (proto_opencv_apps.FlowArray, error) {
-
-	ret := proto_opencv_apps.FlowArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FlowArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Flow {
-		c, err := ConvertFlow(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Flow = append(ret.Flow, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertFlowStamped(rosMsg gengo_opencv_apps.FlowStamped) (proto_opencv_apps.FlowStamped, error) {
-
-	ret := proto_opencv_apps.FlowStamped{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FlowStamped, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertFlow(rosMsg.Flow)
-	ret.Flow = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertMomentArray(rosMsg gengo_opencv_apps.MomentArray) (proto_opencv_apps.MomentArray, error) {
-
-	ret := proto_opencv_apps.MomentArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert MomentArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Moments {
-		c, err := ConvertMoment(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Moments = append(ret.Moments, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertLineArray(rosMsg gengo_opencv_apps.LineArray) (proto_opencv_apps.LineArray, error) {
-
-	ret := proto_opencv_apps.LineArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert LineArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Lines {
-		c, err := ConvertLine(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Lines = append(ret.Lines, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPoint2D(rosMsg gengo_opencv_apps.Point2D) (proto_opencv_apps.Point2D, error) {
-
-	ret := proto_opencv_apps.Point2D{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Point2D, msg is nil")
-	//}
-
-	ret.X = rosMsg.X
-
-	ret.Y = rosMsg.Y
-
-	return ret, nil
-}
-
-func ConvertRotatedRectArray(rosMsg gengo_opencv_apps.RotatedRectArray) (proto_opencv_apps.RotatedRectArray, error) {
-
-	ret := proto_opencv_apps.RotatedRectArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RotatedRectArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Rects {
-		c, err := ConvertRotatedRect(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Rects = append(ret.Rects, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
+	ret.Names = append(ret.Names, t1...)
 
 	return ret, nil
 }
@@ -3967,12 +3107,12 @@ func ConvertHeaderString(rosMsg gengo_rospy_tutorials.HeaderString) (proto_rospy
 	return ret, nil
 }
 
-func ConvertRelativeHumidity(rosMsg gengo_sensor_msgs.RelativeHumidity) (proto_sensor_msgs.RelativeHumidity, error) {
+func ConvertTemperature(rosMsg gengo_sensor_msgs.Temperature) (proto_sensor_msgs.Temperature, error) {
 
-	ret := proto_sensor_msgs.RelativeHumidity{}
+	ret := proto_sensor_msgs.Temperature{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RelativeHumidity, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Temperature, msg is nil")
 	//}
 
 	var err error
@@ -3984,7 +3124,7 @@ func ConvertRelativeHumidity(rosMsg gengo_sensor_msgs.RelativeHumidity) (proto_s
 		return ret, err
 	}
 
-	ret.RelativeHumidity = rosMsg.RelativeHumidity
+	ret.Temperature = rosMsg.Temperature
 
 	ret.Variance = rosMsg.Variance
 
@@ -4042,12 +3182,12 @@ func ConvertBatteryState(rosMsg gengo_sensor_msgs.BatteryState) (proto_sensor_ms
 	return ret, nil
 }
 
-func ConvertCompressedImage(rosMsg gengo_sensor_msgs.CompressedImage) (proto_sensor_msgs.CompressedImage, error) {
+func ConvertFluidPressure(rosMsg gengo_sensor_msgs.FluidPressure) (proto_sensor_msgs.FluidPressure, error) {
 
-	ret := proto_sensor_msgs.CompressedImage{}
+	ret := proto_sensor_msgs.FluidPressure{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert CompressedImage, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert FluidPressure, msg is nil")
 	//}
 
 	var err error
@@ -4059,37 +3199,7 @@ func ConvertCompressedImage(rosMsg gengo_sensor_msgs.CompressedImage) (proto_sen
 		return ret, err
 	}
 
-	ret.Format = rosMsg.Format
-
-	t2 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t2 = append(t2, a)
-	}
-
-	ret.Data = append(ret.Data, t2...)
-
-	return ret, nil
-}
-
-func ConvertIlluminance(rosMsg gengo_sensor_msgs.Illuminance) (proto_sensor_msgs.Illuminance, error) {
-
-	ret := proto_sensor_msgs.Illuminance{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Illuminance, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Illuminance = rosMsg.Illuminance
+	ret.FluidPressure = rosMsg.FluidPressure
 
 	ret.Variance = rosMsg.Variance
 
@@ -4126,6 +3236,25 @@ func ConvertMagneticField(rosMsg gengo_sensor_msgs.MagneticField) (proto_sensor_
 	}
 
 	ret.MagneticFieldCovariance = append(ret.MagneticFieldCovariance, t2...)
+
+	return ret, nil
+}
+
+func ConvertPointField(rosMsg gengo_sensor_msgs.PointField) (proto_sensor_msgs.PointField, error) {
+
+	ret := proto_sensor_msgs.PointField{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PointField, msg is nil")
+	//}
+
+	ret.Name = rosMsg.Name
+
+	ret.Offset = rosMsg.Offset
+
+	ret.Datatype = uint32(rosMsg.Datatype)
+
+	ret.Count = rosMsg.Count
 
 	return ret, nil
 }
@@ -4188,36 +3317,6 @@ func ConvertMultiEchoLaserScan(rosMsg gengo_sensor_msgs.MultiEchoLaserScan) (pro
 	return ret, nil
 }
 
-func ConvertRange(rosMsg gengo_sensor_msgs.Range) (proto_sensor_msgs.Range, error) {
-
-	ret := proto_sensor_msgs.Range{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Range, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.RadiationType = uint32(rosMsg.RadiationType)
-
-	ret.FieldOfView = rosMsg.FieldOfView
-
-	ret.MinRange = rosMsg.MinRange
-
-	ret.MaxRange = rosMsg.MaxRange
-
-	ret.Range = rosMsg.Range
-
-	return ret, nil
-}
-
 func ConvertPointCloud(rosMsg gengo_sensor_msgs.PointCloud) (proto_sensor_msgs.PointCloud, error) {
 
 	ret := proto_sensor_msgs.PointCloud{}
@@ -4262,12 +3361,33 @@ func ConvertPointCloud(rosMsg gengo_sensor_msgs.PointCloud) (proto_sensor_msgs.P
 	return ret, nil
 }
 
-func ConvertMultiDOFJointState(rosMsg gengo_sensor_msgs.MultiDOFJointState) (proto_sensor_msgs.MultiDOFJointState, error) {
+func ConvertRegionOfInterest(rosMsg gengo_sensor_msgs.RegionOfInterest) (proto_sensor_msgs.RegionOfInterest, error) {
 
-	ret := proto_sensor_msgs.MultiDOFJointState{}
+	ret := proto_sensor_msgs.RegionOfInterest{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert MultiDOFJointState, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert RegionOfInterest, msg is nil")
+	//}
+
+	ret.XOffset = rosMsg.XOffset
+
+	ret.YOffset = rosMsg.YOffset
+
+	ret.Height = rosMsg.Height
+
+	ret.Width = rosMsg.Width
+
+	ret.DoRectify = rosMsg.DoRectify
+
+	return ret, nil
+}
+
+func ConvertJointState(rosMsg gengo_sensor_msgs.JointState) (proto_sensor_msgs.JointState, error) {
+
+	ret := proto_sensor_msgs.JointState{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert JointState, msg is nil")
 	//}
 
 	var err error
@@ -4279,48 +3399,68 @@ func ConvertMultiDOFJointState(rosMsg gengo_sensor_msgs.MultiDOFJointState) (pro
 		return ret, err
 	}
 
-	t1 := make([]string, 0, len(rosMsg.JointNames))
-	for _, m := range rosMsg.JointNames {
+	t1 := make([]string, 0, len(rosMsg.Name))
+	for _, m := range rosMsg.Name {
 		t1 = append(t1, m)
 	}
 
-	ret.JointNames = append(ret.JointNames, t1...)
+	ret.Name = append(ret.Name, t1...)
 
-	for _, m := range rosMsg.Transforms {
-		c, err := ConvertTransform(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Transforms = append(ret.Transforms, &c)
+	t2 := make([]float64, 0, len(rosMsg.Position))
+	for _, m := range rosMsg.Position {
+		t2 = append(t2, m)
 	}
 
-	if err != nil {
-		return ret, err
+	ret.Position = append(ret.Position, t2...)
+
+	t3 := make([]float64, 0, len(rosMsg.Velocity))
+	for _, m := range rosMsg.Velocity {
+		t3 = append(t3, m)
 	}
 
-	for _, m := range rosMsg.Twist {
-		c, err := ConvertTwist(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Twist = append(ret.Twist, &c)
+	ret.Velocity = append(ret.Velocity, t3...)
+
+	t4 := make([]float64, 0, len(rosMsg.Effort))
+	for _, m := range rosMsg.Effort {
+		t4 = append(t4, m)
 	}
 
-	if err != nil {
-		return ret, err
+	ret.Effort = append(ret.Effort, t4...)
+
+	return ret, nil
+}
+
+func ConvertJoyFeedback(rosMsg gengo_sensor_msgs.JoyFeedback) (proto_sensor_msgs.JoyFeedback, error) {
+
+	ret := proto_sensor_msgs.JoyFeedback{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert JoyFeedback, msg is nil")
+	//}
+
+	ret.Type = uint32(rosMsg.Type)
+
+	ret.Id = uint32(rosMsg.Id)
+
+	ret.Intensity = rosMsg.Intensity
+
+	return ret, nil
+}
+
+func ConvertLaserEcho(rosMsg gengo_sensor_msgs.LaserEcho) (proto_sensor_msgs.LaserEcho, error) {
+
+	ret := proto_sensor_msgs.LaserEcho{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert LaserEcho, msg is nil")
+	//}
+
+	t0 := make([]float32, 0, len(rosMsg.Echoes))
+	for _, m := range rosMsg.Echoes {
+		t0 = append(t0, m)
 	}
 
-	for _, m := range rosMsg.Wrench {
-		c, err := ConvertWrench(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Wrench = append(ret.Wrench, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
+	ret.Echoes = append(ret.Echoes, t0...)
 
 	return ret, nil
 }
@@ -4341,6 +3481,36 @@ func ConvertChannelFloat32(rosMsg gengo_sensor_msgs.ChannelFloat32) (proto_senso
 	}
 
 	ret.Values = append(ret.Values, t1...)
+
+	return ret, nil
+}
+
+func ConvertCompressedImage(rosMsg gengo_sensor_msgs.CompressedImage) (proto_sensor_msgs.CompressedImage, error) {
+
+	ret := proto_sensor_msgs.CompressedImage{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert CompressedImage, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Format = rosMsg.Format
+
+	t2 := make([]uint32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := uint32(m)
+		t2 = append(t2, a)
+	}
+
+	ret.Data = append(ret.Data, t2...)
 
 	return ret, nil
 }
@@ -4379,6 +3549,201 @@ func ConvertImage(rosMsg gengo_sensor_msgs.Image) (proto_sensor_msgs.Image, erro
 	}
 
 	ret.Data = append(ret.Data, t6...)
+
+	return ret, nil
+}
+
+func ConvertJoyFeedbackArray(rosMsg gengo_sensor_msgs.JoyFeedbackArray) (proto_sensor_msgs.JoyFeedbackArray, error) {
+
+	ret := proto_sensor_msgs.JoyFeedbackArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert JoyFeedbackArray, msg is nil")
+	//}
+
+	var err error
+
+	for _, m := range rosMsg.Array {
+		c, err := ConvertJoyFeedback(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Array = append(ret.Array, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
+}
+
+func ConvertNavSatFix(rosMsg gengo_sensor_msgs.NavSatFix) (proto_sensor_msgs.NavSatFix, error) {
+
+	ret := proto_sensor_msgs.NavSatFix{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert NavSatFix, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertNavSatStatus(rosMsg.Status)
+	ret.Status = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Latitude = rosMsg.Latitude
+
+	ret.Longitude = rosMsg.Longitude
+
+	ret.Altitude = rosMsg.Altitude
+
+	t5 := make([]float64, 0, len(rosMsg.PositionCovariance))
+	for _, m := range rosMsg.PositionCovariance {
+		t5 = append(t5, m)
+	}
+
+	ret.PositionCovariance = append(ret.PositionCovariance, t5...)
+
+	ret.PositionCovarianceType = uint32(rosMsg.PositionCovarianceType)
+
+	return ret, nil
+}
+
+func ConvertRange(rosMsg gengo_sensor_msgs.Range) (proto_sensor_msgs.Range, error) {
+
+	ret := proto_sensor_msgs.Range{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Range, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.RadiationType = uint32(rosMsg.RadiationType)
+
+	ret.FieldOfView = rosMsg.FieldOfView
+
+	ret.MinRange = rosMsg.MinRange
+
+	ret.MaxRange = rosMsg.MaxRange
+
+	ret.Range = rosMsg.Range
+
+	return ret, nil
+}
+
+func ConvertRelativeHumidity(rosMsg gengo_sensor_msgs.RelativeHumidity) (proto_sensor_msgs.RelativeHumidity, error) {
+
+	ret := proto_sensor_msgs.RelativeHumidity{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert RelativeHumidity, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.RelativeHumidity = rosMsg.RelativeHumidity
+
+	ret.Variance = rosMsg.Variance
+
+	return ret, nil
+}
+
+func ConvertPointCloud2(rosMsg gengo_sensor_msgs.PointCloud2) (proto_sensor_msgs.PointCloud2, error) {
+
+	ret := proto_sensor_msgs.PointCloud2{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert PointCloud2, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Height = rosMsg.Height
+
+	ret.Width = rosMsg.Width
+
+	for _, m := range rosMsg.Fields {
+		c, err := ConvertPointField(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Fields = append(ret.Fields, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.IsBigendian = rosMsg.IsBigendian
+
+	ret.PointStep = rosMsg.PointStep
+
+	ret.RowStep = rosMsg.RowStep
+
+	t7 := make([]uint32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := uint32(m)
+		t7 = append(t7, a)
+	}
+
+	ret.Data = append(ret.Data, t7...)
+
+	ret.IsDense = rosMsg.IsDense
+
+	return ret, nil
+}
+
+func ConvertTimeReference(rosMsg gengo_sensor_msgs.TimeReference) (proto_sensor_msgs.TimeReference, error) {
+
+	ret := proto_sensor_msgs.TimeReference{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert TimeReference, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.Source = rosMsg.Source
 
 	return ret, nil
 }
@@ -4445,77 +3810,12 @@ func ConvertImu(rosMsg gengo_sensor_msgs.Imu) (proto_sensor_msgs.Imu, error) {
 	return ret, nil
 }
 
-func ConvertJoyFeedbackArray(rosMsg gengo_sensor_msgs.JoyFeedbackArray) (proto_sensor_msgs.JoyFeedbackArray, error) {
+func ConvertJoy(rosMsg gengo_sensor_msgs.Joy) (proto_sensor_msgs.Joy, error) {
 
-	ret := proto_sensor_msgs.JoyFeedbackArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert JoyFeedbackArray, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Array {
-		c, err := ConvertJoyFeedback(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Array = append(ret.Array, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertPointField(rosMsg gengo_sensor_msgs.PointField) (proto_sensor_msgs.PointField, error) {
-
-	ret := proto_sensor_msgs.PointField{}
+	ret := proto_sensor_msgs.Joy{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PointField, msg is nil")
-	//}
-
-	ret.Name = rosMsg.Name
-
-	ret.Offset = rosMsg.Offset
-
-	ret.Datatype = uint32(rosMsg.Datatype)
-
-	ret.Count = rosMsg.Count
-
-	return ret, nil
-}
-
-func ConvertRegionOfInterest(rosMsg gengo_sensor_msgs.RegionOfInterest) (proto_sensor_msgs.RegionOfInterest, error) {
-
-	ret := proto_sensor_msgs.RegionOfInterest{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert RegionOfInterest, msg is nil")
-	//}
-
-	ret.XOffset = rosMsg.XOffset
-
-	ret.YOffset = rosMsg.YOffset
-
-	ret.Height = rosMsg.Height
-
-	ret.Width = rosMsg.Width
-
-	ret.DoRectify = rosMsg.DoRectify
-
-	return ret, nil
-}
-
-func ConvertPointCloud2(rosMsg gengo_sensor_msgs.PointCloud2) (proto_sensor_msgs.PointCloud2, error) {
-
-	ret := proto_sensor_msgs.PointCloud2{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert PointCloud2, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Joy, msg is nil")
 	//}
 
 	var err error
@@ -4527,37 +3827,145 @@ func ConvertPointCloud2(rosMsg gengo_sensor_msgs.PointCloud2) (proto_sensor_msgs
 		return ret, err
 	}
 
-	ret.Height = rosMsg.Height
+	t1 := make([]float32, 0, len(rosMsg.Axes))
+	for _, m := range rosMsg.Axes {
+		t1 = append(t1, m)
+	}
 
-	ret.Width = rosMsg.Width
+	ret.Axes = append(ret.Axes, t1...)
 
-	for _, m := range rosMsg.Fields {
-		c, err := ConvertPointField(m)
+	t2 := make([]int32, 0, len(rosMsg.Buttons))
+	for _, m := range rosMsg.Buttons {
+		t2 = append(t2, m)
+	}
+
+	ret.Buttons = append(ret.Buttons, t2...)
+
+	return ret, nil
+}
+
+func ConvertNavSatStatus(rosMsg gengo_sensor_msgs.NavSatStatus) (proto_sensor_msgs.NavSatStatus, error) {
+
+	ret := proto_sensor_msgs.NavSatStatus{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert NavSatStatus, msg is nil")
+	//}
+
+	ret.Status = int32(rosMsg.Status)
+
+	ret.Service = uint32(rosMsg.Service)
+
+	return ret, nil
+}
+
+func ConvertLaserScan(rosMsg gengo_sensor_msgs.LaserScan) (proto_sensor_msgs.LaserScan, error) {
+
+	ret := proto_sensor_msgs.LaserScan{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert LaserScan, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.AngleMin = rosMsg.AngleMin
+
+	ret.AngleMax = rosMsg.AngleMax
+
+	ret.AngleIncrement = rosMsg.AngleIncrement
+
+	ret.TimeIncrement = rosMsg.TimeIncrement
+
+	ret.ScanTime = rosMsg.ScanTime
+
+	ret.RangeMin = rosMsg.RangeMin
+
+	ret.RangeMax = rosMsg.RangeMax
+
+	t8 := make([]float32, 0, len(rosMsg.Ranges))
+	for _, m := range rosMsg.Ranges {
+		t8 = append(t8, m)
+	}
+
+	ret.Ranges = append(ret.Ranges, t8...)
+
+	t9 := make([]float32, 0, len(rosMsg.Intensities))
+	for _, m := range rosMsg.Intensities {
+		t9 = append(t9, m)
+	}
+
+	ret.Intensities = append(ret.Intensities, t9...)
+
+	return ret, nil
+}
+
+func ConvertMultiDOFJointState(rosMsg gengo_sensor_msgs.MultiDOFJointState) (proto_sensor_msgs.MultiDOFJointState, error) {
+
+	ret := proto_sensor_msgs.MultiDOFJointState{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert MultiDOFJointState, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertHeader(rosMsg.Header)
+	ret.Header = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]string, 0, len(rosMsg.JointNames))
+	for _, m := range rosMsg.JointNames {
+		t1 = append(t1, m)
+	}
+
+	ret.JointNames = append(ret.JointNames, t1...)
+
+	for _, m := range rosMsg.Transforms {
+		c, err := ConvertTransform(m)
 		if err != nil {
 			return ret, err
 		}
-		ret.Fields = append(ret.Fields, &c)
+		ret.Transforms = append(ret.Transforms, &c)
 	}
 
 	if err != nil {
 		return ret, err
 	}
 
-	ret.IsBigendian = rosMsg.IsBigendian
-
-	ret.PointStep = rosMsg.PointStep
-
-	ret.RowStep = rosMsg.RowStep
-
-	t7 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t7 = append(t7, a)
+	for _, m := range rosMsg.Twist {
+		c, err := ConvertTwist(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Twist = append(ret.Twist, &c)
 	}
 
-	ret.Data = append(ret.Data, t7...)
+	if err != nil {
+		return ret, err
+	}
 
-	ret.IsDense = rosMsg.IsDense
+	for _, m := range rosMsg.Wrench {
+		c, err := ConvertWrench(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Wrench = append(ret.Wrench, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
 
 	return ret, nil
 }
@@ -4627,29 +4035,12 @@ func ConvertCameraInfo(rosMsg gengo_sensor_msgs.CameraInfo) (proto_sensor_msgs.C
 	return ret, nil
 }
 
-func ConvertJoyFeedback(rosMsg gengo_sensor_msgs.JoyFeedback) (proto_sensor_msgs.JoyFeedback, error) {
+func ConvertIlluminance(rosMsg gengo_sensor_msgs.Illuminance) (proto_sensor_msgs.Illuminance, error) {
 
-	ret := proto_sensor_msgs.JoyFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert JoyFeedback, msg is nil")
-	//}
-
-	ret.Type = uint32(rosMsg.Type)
-
-	ret.Id = uint32(rosMsg.Id)
-
-	ret.Intensity = rosMsg.Intensity
-
-	return ret, nil
-}
-
-func ConvertLaserScan(rosMsg gengo_sensor_msgs.LaserScan) (proto_sensor_msgs.LaserScan, error) {
-
-	ret := proto_sensor_msgs.LaserScan{}
+	ret := proto_sensor_msgs.Illuminance{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert LaserScan, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Illuminance, msg is nil")
 	//}
 
 	var err error
@@ -4661,260 +4052,9 @@ func ConvertLaserScan(rosMsg gengo_sensor_msgs.LaserScan) (proto_sensor_msgs.Las
 		return ret, err
 	}
 
-	ret.AngleMin = rosMsg.AngleMin
-
-	ret.AngleMax = rosMsg.AngleMax
-
-	ret.AngleIncrement = rosMsg.AngleIncrement
-
-	ret.TimeIncrement = rosMsg.TimeIncrement
-
-	ret.ScanTime = rosMsg.ScanTime
-
-	ret.RangeMin = rosMsg.RangeMin
-
-	ret.RangeMax = rosMsg.RangeMax
-
-	t8 := make([]float32, 0, len(rosMsg.Ranges))
-	for _, m := range rosMsg.Ranges {
-		t8 = append(t8, m)
-	}
-
-	ret.Ranges = append(ret.Ranges, t8...)
-
-	t9 := make([]float32, 0, len(rosMsg.Intensities))
-	for _, m := range rosMsg.Intensities {
-		t9 = append(t9, m)
-	}
-
-	ret.Intensities = append(ret.Intensities, t9...)
-
-	return ret, nil
-}
-
-func ConvertJoy(rosMsg gengo_sensor_msgs.Joy) (proto_sensor_msgs.Joy, error) {
-
-	ret := proto_sensor_msgs.Joy{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Joy, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float32, 0, len(rosMsg.Axes))
-	for _, m := range rosMsg.Axes {
-		t1 = append(t1, m)
-	}
-
-	ret.Axes = append(ret.Axes, t1...)
-
-	t2 := make([]int32, 0, len(rosMsg.Buttons))
-	for _, m := range rosMsg.Buttons {
-		t2 = append(t2, m)
-	}
-
-	ret.Buttons = append(ret.Buttons, t2...)
-
-	return ret, nil
-}
-
-func ConvertLaserEcho(rosMsg gengo_sensor_msgs.LaserEcho) (proto_sensor_msgs.LaserEcho, error) {
-
-	ret := proto_sensor_msgs.LaserEcho{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert LaserEcho, msg is nil")
-	//}
-
-	t0 := make([]float32, 0, len(rosMsg.Echoes))
-	for _, m := range rosMsg.Echoes {
-		t0 = append(t0, m)
-	}
-
-	ret.Echoes = append(ret.Echoes, t0...)
-
-	return ret, nil
-}
-
-func ConvertNavSatFix(rosMsg gengo_sensor_msgs.NavSatFix) (proto_sensor_msgs.NavSatFix, error) {
-
-	ret := proto_sensor_msgs.NavSatFix{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert NavSatFix, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertNavSatStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Latitude = rosMsg.Latitude
-
-	ret.Longitude = rosMsg.Longitude
-
-	ret.Altitude = rosMsg.Altitude
-
-	t5 := make([]float64, 0, len(rosMsg.PositionCovariance))
-	for _, m := range rosMsg.PositionCovariance {
-		t5 = append(t5, m)
-	}
-
-	ret.PositionCovariance = append(ret.PositionCovariance, t5...)
-
-	ret.PositionCovarianceType = uint32(rosMsg.PositionCovarianceType)
-
-	return ret, nil
-}
-
-func ConvertFluidPressure(rosMsg gengo_sensor_msgs.FluidPressure) (proto_sensor_msgs.FluidPressure, error) {
-
-	ret := proto_sensor_msgs.FluidPressure{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert FluidPressure, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.FluidPressure = rosMsg.FluidPressure
+	ret.Illuminance = rosMsg.Illuminance
 
 	ret.Variance = rosMsg.Variance
-
-	return ret, nil
-}
-
-func ConvertJointState(rosMsg gengo_sensor_msgs.JointState) (proto_sensor_msgs.JointState, error) {
-
-	ret := proto_sensor_msgs.JointState{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert JointState, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]string, 0, len(rosMsg.Name))
-	for _, m := range rosMsg.Name {
-		t1 = append(t1, m)
-	}
-
-	ret.Name = append(ret.Name, t1...)
-
-	t2 := make([]float64, 0, len(rosMsg.Position))
-	for _, m := range rosMsg.Position {
-		t2 = append(t2, m)
-	}
-
-	ret.Position = append(ret.Position, t2...)
-
-	t3 := make([]float64, 0, len(rosMsg.Velocity))
-	for _, m := range rosMsg.Velocity {
-		t3 = append(t3, m)
-	}
-
-	ret.Velocity = append(ret.Velocity, t3...)
-
-	t4 := make([]float64, 0, len(rosMsg.Effort))
-	for _, m := range rosMsg.Effort {
-		t4 = append(t4, m)
-	}
-
-	ret.Effort = append(ret.Effort, t4...)
-
-	return ret, nil
-}
-
-func ConvertNavSatStatus(rosMsg gengo_sensor_msgs.NavSatStatus) (proto_sensor_msgs.NavSatStatus, error) {
-
-	ret := proto_sensor_msgs.NavSatStatus{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert NavSatStatus, msg is nil")
-	//}
-
-	ret.Status = int32(rosMsg.Status)
-
-	ret.Service = uint32(rosMsg.Service)
-
-	return ret, nil
-}
-
-func ConvertTemperature(rosMsg gengo_sensor_msgs.Temperature) (proto_sensor_msgs.Temperature, error) {
-
-	ret := proto_sensor_msgs.Temperature{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Temperature, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Temperature = rosMsg.Temperature
-
-	ret.Variance = rosMsg.Variance
-
-	return ret, nil
-}
-
-func ConvertTimeReference(rosMsg gengo_sensor_msgs.TimeReference) (proto_sensor_msgs.TimeReference, error) {
-
-	ret := proto_sensor_msgs.TimeReference{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert TimeReference, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Source = rosMsg.Source
 
 	return ret, nil
 }
@@ -5034,74 +4174,6 @@ func ConvertSmachContainerStructure(rosMsg gengo_smach_msgs.SmachContainerStruct
 	}
 
 	ret.ContainerOutcomes = append(ret.ContainerOutcomes, t6...)
-
-	return ret, nil
-}
-
-func ConvertSoundRequestResult(rosMsg gengo_sound_play.SoundRequestResult) (proto_sound_play.SoundRequestResult, error) {
-
-	ret := proto_sound_play.SoundRequestResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert SoundRequestResult, msg is nil")
-	//}
-
-	ret.Playing = rosMsg.Playing
-
-	return ret, nil
-}
-
-func ConvertSoundRequest(rosMsg gengo_sound_play.SoundRequest) (proto_sound_play.SoundRequest, error) {
-
-	ret := proto_sound_play.SoundRequest{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert SoundRequest, msg is nil")
-	//}
-
-	ret.Sound = int32(rosMsg.Sound)
-
-	ret.Command = int32(rosMsg.Command)
-
-	ret.Volume = rosMsg.Volume
-
-	ret.Arg = rosMsg.Arg
-
-	ret.Arg2 = rosMsg.Arg2
-
-	return ret, nil
-}
-
-func ConvertSoundRequestAction(rosMsg gengo_sound_play.SoundRequestAction) (proto_sound_play.SoundRequestAction, error) {
-
-	ret := proto_sound_play.SoundRequestAction{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert SoundRequestAction, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertSoundRequestActionGoal(rosMsg.ActionGoal)
-	ret.ActionGoal = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertSoundRequestActionResult(rosMsg.ActionResult)
-	ret.ActionResult = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertSoundRequestActionFeedback(rosMsg.ActionFeedback)
-	ret.ActionFeedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
 
 	return ret, nil
 }
@@ -5241,49 +4313,119 @@ func ConvertSoundRequestGoal(rosMsg gengo_sound_play.SoundRequestGoal) (proto_so
 	return ret, nil
 }
 
-func ConvertDuration(rosMsg gengo_std_msgs.Duration) (proto_std_msgs.Duration, error) {
+func ConvertSoundRequestResult(rosMsg gengo_sound_play.SoundRequestResult) (proto_sound_play.SoundRequestResult, error) {
 
-	ret := proto_std_msgs.Duration{}
+	ret := proto_sound_play.SoundRequestResult{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Duration, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert SoundRequestResult, msg is nil")
 	//}
+
+	ret.Playing = rosMsg.Playing
 
 	return ret, nil
 }
 
-func ConvertInt64(rosMsg gengo_std_msgs.Int64) (proto_std_msgs.Int64, error) {
+func ConvertSoundRequest(rosMsg gengo_sound_play.SoundRequest) (proto_sound_play.SoundRequest, error) {
 
-	ret := proto_std_msgs.Int64{}
+	ret := proto_sound_play.SoundRequest{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int64, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert SoundRequest, msg is nil")
 	//}
 
-	ret.Data = rosMsg.Data
+	ret.Sound = int32(rosMsg.Sound)
+
+	ret.Command = int32(rosMsg.Command)
+
+	ret.Volume = rosMsg.Volume
+
+	ret.Arg = rosMsg.Arg
+
+	ret.Arg2 = rosMsg.Arg2
 
 	return ret, nil
 }
 
-func ConvertUInt64(rosMsg gengo_std_msgs.UInt64) (proto_std_msgs.UInt64, error) {
+func ConvertSoundRequestAction(rosMsg gengo_sound_play.SoundRequestAction) (proto_sound_play.SoundRequestAction, error) {
 
-	ret := proto_std_msgs.UInt64{}
+	ret := proto_sound_play.SoundRequestAction{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt64, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert SoundRequestAction, msg is nil")
 	//}
 
-	ret.Data = rosMsg.Data
+	var err error
+
+	t0, err := ConvertSoundRequestActionGoal(rosMsg.ActionGoal)
+	ret.ActionGoal = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1, err := ConvertSoundRequestActionResult(rosMsg.ActionResult)
+	ret.ActionResult = &t1
+
+	if err != nil {
+		return ret, err
+	}
+
+	t2, err := ConvertSoundRequestActionFeedback(rosMsg.ActionFeedback)
+	ret.ActionFeedback = &t2
+
+	if err != nil {
+		return ret, err
+	}
 
 	return ret, nil
 }
 
-func ConvertFloat64MultiArray(rosMsg gengo_std_msgs.Float64MultiArray) (proto_std_msgs.Float64MultiArray, error) {
+func ConvertChar(rosMsg gengo_std_msgs.Char) (proto_std_msgs.Char, error) {
 
-	ret := proto_std_msgs.Float64MultiArray{}
+	ret := proto_std_msgs.Char{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Float64MultiArray, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Char, msg is nil")
+	//}
+
+	ret.Data = uint32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertInt8(rosMsg gengo_std_msgs.Int8) (proto_std_msgs.Int8, error) {
+
+	ret := proto_std_msgs.Int8{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int8, msg is nil")
+	//}
+
+	ret.Data = int32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertUInt16(rosMsg gengo_std_msgs.UInt16) (proto_std_msgs.UInt16, error) {
+
+	ret := proto_std_msgs.UInt16{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert UInt16, msg is nil")
+	//}
+
+	ret.Data = uint32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertFloat32MultiArray(rosMsg gengo_std_msgs.Float32MultiArray) (proto_std_msgs.Float32MultiArray, error) {
+
+	ret := proto_std_msgs.Float32MultiArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Float32MultiArray, msg is nil")
 	//}
 
 	var err error
@@ -5295,53 +4437,12 @@ func ConvertFloat64MultiArray(rosMsg gengo_std_msgs.Float64MultiArray) (proto_st
 		return ret, err
 	}
 
-	t1 := make([]float64, 0, len(rosMsg.Data))
+	t1 := make([]float32, 0, len(rosMsg.Data))
 	for _, m := range rosMsg.Data {
 		t1 = append(t1, m)
 	}
 
 	ret.Data = append(ret.Data, t1...)
-
-	return ret, nil
-}
-
-func ConvertInt16(rosMsg gengo_std_msgs.Int16) (proto_std_msgs.Int16, error) {
-
-	ret := proto_std_msgs.Int16{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int16, msg is nil")
-	//}
-
-	ret.Data = int32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertHeader(rosMsg gengo_std_msgs.Header) (proto_std_msgs.Header, error) {
-
-	ret := proto_std_msgs.Header{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Header, msg is nil")
-	//}
-
-	ret.Seq = rosMsg.Seq
-
-	ret.FrameId = rosMsg.FrameId
-
-	return ret, nil
-}
-
-func ConvertUInt32(rosMsg gengo_std_msgs.UInt32) (proto_std_msgs.UInt32, error) {
-
-	ret := proto_std_msgs.UInt32{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt32, msg is nil")
-	//}
-
-	ret.Data = rosMsg.Data
 
 	return ret, nil
 }
@@ -5374,12 +4475,12 @@ func ConvertByteMultiArray(rosMsg gengo_std_msgs.ByteMultiArray) (proto_std_msgs
 	return ret, nil
 }
 
-func ConvertInt16MultiArray(rosMsg gengo_std_msgs.Int16MultiArray) (proto_std_msgs.Int16MultiArray, error) {
+func ConvertFloat64MultiArray(rosMsg gengo_std_msgs.Float64MultiArray) (proto_std_msgs.Float64MultiArray, error) {
 
-	ret := proto_std_msgs.Int16MultiArray{}
+	ret := proto_std_msgs.Float64MultiArray{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int16MultiArray, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Float64MultiArray, msg is nil")
 	//}
 
 	var err error
@@ -5391,13 +4492,39 @@ func ConvertInt16MultiArray(rosMsg gengo_std_msgs.Int16MultiArray) (proto_std_ms
 		return ret, err
 	}
 
-	t1 := make([]int32, 0, len(rosMsg.Data))
+	t1 := make([]float64, 0, len(rosMsg.Data))
 	for _, m := range rosMsg.Data {
-		a := int32(m)
-		t1 = append(t1, a)
+		t1 = append(t1, m)
 	}
 
 	ret.Data = append(ret.Data, t1...)
+
+	return ret, nil
+}
+
+func ConvertMultiArrayLayout(rosMsg gengo_std_msgs.MultiArrayLayout) (proto_std_msgs.MultiArrayLayout, error) {
+
+	ret := proto_std_msgs.MultiArrayLayout{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert MultiArrayLayout, msg is nil")
+	//}
+
+	var err error
+
+	for _, m := range rosMsg.Dim {
+		c, err := ConvertMultiArrayDimension(m)
+		if err != nil {
+			return ret, err
+		}
+		ret.Dim = append(ret.Dim, &c)
+	}
+
+	if err != nil {
+		return ret, err
+	}
+
+	ret.DataOffset = rosMsg.DataOffset
 
 	return ret, nil
 }
@@ -5413,43 +4540,15 @@ func ConvertTime(rosMsg gengo_std_msgs.Time) (proto_std_msgs.Time, error) {
 	return ret, nil
 }
 
-func ConvertUInt16(rosMsg gengo_std_msgs.UInt16) (proto_std_msgs.UInt16, error) {
+func ConvertUInt64(rosMsg gengo_std_msgs.UInt64) (proto_std_msgs.UInt64, error) {
 
-	ret := proto_std_msgs.UInt16{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt16, msg is nil")
-	//}
-
-	ret.Data = uint32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertUInt16MultiArray(rosMsg gengo_std_msgs.UInt16MultiArray) (proto_std_msgs.UInt16MultiArray, error) {
-
-	ret := proto_std_msgs.UInt16MultiArray{}
+	ret := proto_std_msgs.UInt64{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt16MultiArray, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert UInt64, msg is nil")
 	//}
 
-	var err error
-
-	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
-	ret.Layout = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]uint32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := uint32(m)
-		t1 = append(t1, a)
-	}
-
-	ret.Data = append(ret.Data, t1...)
+	ret.Data = rosMsg.Data
 
 	return ret, nil
 }
@@ -5482,21 +4581,137 @@ func ConvertUInt8MultiArray(rosMsg gengo_std_msgs.UInt8MultiArray) (proto_std_ms
 	return ret, nil
 }
 
-func ConvertColorRGBA(rosMsg gengo_std_msgs.ColorRGBA) (proto_std_msgs.ColorRGBA, error) {
+func ConvertFloat32(rosMsg gengo_std_msgs.Float32) (proto_std_msgs.Float32, error) {
 
-	ret := proto_std_msgs.ColorRGBA{}
+	ret := proto_std_msgs.Float32{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert ColorRGBA, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert Float32, msg is nil")
 	//}
 
-	ret.R = rosMsg.R
+	ret.Data = rosMsg.Data
 
-	ret.G = rosMsg.G
+	return ret, nil
+}
 
-	ret.B = rosMsg.B
+func ConvertInt32(rosMsg gengo_std_msgs.Int32) (proto_std_msgs.Int32, error) {
 
-	ret.A = rosMsg.A
+	ret := proto_std_msgs.Int32{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int32, msg is nil")
+	//}
+
+	ret.Data = rosMsg.Data
+
+	return ret, nil
+}
+
+func ConvertInt8MultiArray(rosMsg gengo_std_msgs.Int8MultiArray) (proto_std_msgs.Int8MultiArray, error) {
+
+	ret := proto_std_msgs.Int8MultiArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int8MultiArray, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
+	ret.Layout = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]int32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := int32(m)
+		t1 = append(t1, a)
+	}
+
+	ret.Data = append(ret.Data, t1...)
+
+	return ret, nil
+}
+
+func ConvertBool(rosMsg gengo_std_msgs.Bool) (proto_std_msgs.Bool, error) {
+
+	ret := proto_std_msgs.Bool{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Bool, msg is nil")
+	//}
+
+	ret.Data = rosMsg.Data
+
+	return ret, nil
+}
+
+func ConvertMultiArrayDimension(rosMsg gengo_std_msgs.MultiArrayDimension) (proto_std_msgs.MultiArrayDimension, error) {
+
+	ret := proto_std_msgs.MultiArrayDimension{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert MultiArrayDimension, msg is nil")
+	//}
+
+	ret.Label = rosMsg.Label
+
+	ret.Size = rosMsg.Size
+
+	ret.Stride = rosMsg.Stride
+
+	return ret, nil
+}
+
+func ConvertUInt64MultiArray(rosMsg gengo_std_msgs.UInt64MultiArray) (proto_std_msgs.UInt64MultiArray, error) {
+
+	ret := proto_std_msgs.UInt64MultiArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert UInt64MultiArray, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
+	ret.Layout = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]uint64, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		t1 = append(t1, m)
+	}
+
+	ret.Data = append(ret.Data, t1...)
+
+	return ret, nil
+}
+
+func ConvertUInt8(rosMsg gengo_std_msgs.UInt8) (proto_std_msgs.UInt8, error) {
+
+	ret := proto_std_msgs.UInt8{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert UInt8, msg is nil")
+	//}
+
+	ret.Data = uint32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertDuration(rosMsg gengo_std_msgs.Duration) (proto_std_msgs.Duration, error) {
+
+	ret := proto_std_msgs.Duration{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Duration, msg is nil")
+	//}
 
 	return ret, nil
 }
@@ -5514,15 +4729,43 @@ func ConvertFloat64(rosMsg gengo_std_msgs.Float64) (proto_std_msgs.Float64, erro
 	return ret, nil
 }
 
-func ConvertInt32(rosMsg gengo_std_msgs.Int32) (proto_std_msgs.Int32, error) {
+func ConvertString(rosMsg gengo_std_msgs.String) (proto_std_msgs.String, error) {
 
-	ret := proto_std_msgs.Int32{}
+	ret := proto_std_msgs.String{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int32, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert String, msg is nil")
 	//}
 
 	ret.Data = rosMsg.Data
+
+	return ret, nil
+}
+
+func ConvertUInt16MultiArray(rosMsg gengo_std_msgs.UInt16MultiArray) (proto_std_msgs.UInt16MultiArray, error) {
+
+	ret := proto_std_msgs.UInt16MultiArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert UInt16MultiArray, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
+	ret.Layout = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]uint32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := uint32(m)
+		t1 = append(t1, a)
+	}
+
+	ret.Data = append(ret.Data, t1...)
 
 	return ret, nil
 }
@@ -5547,6 +4790,118 @@ func ConvertInt32MultiArray(rosMsg gengo_std_msgs.Int32MultiArray) (proto_std_ms
 	t1 := make([]int32, 0, len(rosMsg.Data))
 	for _, m := range rosMsg.Data {
 		t1 = append(t1, m)
+	}
+
+	ret.Data = append(ret.Data, t1...)
+
+	return ret, nil
+}
+
+func ConvertInt64(rosMsg gengo_std_msgs.Int64) (proto_std_msgs.Int64, error) {
+
+	ret := proto_std_msgs.Int64{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int64, msg is nil")
+	//}
+
+	ret.Data = rosMsg.Data
+
+	return ret, nil
+}
+
+func ConvertByte(rosMsg gengo_std_msgs.Byte) (proto_std_msgs.Byte, error) {
+
+	ret := proto_std_msgs.Byte{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Byte, msg is nil")
+	//}
+
+	ret.Data = uint32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertColorRGBA(rosMsg gengo_std_msgs.ColorRGBA) (proto_std_msgs.ColorRGBA, error) {
+
+	ret := proto_std_msgs.ColorRGBA{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert ColorRGBA, msg is nil")
+	//}
+
+	ret.R = rosMsg.R
+
+	ret.G = rosMsg.G
+
+	ret.B = rosMsg.B
+
+	ret.A = rosMsg.A
+
+	return ret, nil
+}
+
+func ConvertEmpty(rosMsg gengo_std_msgs.Empty) (proto_std_msgs.Empty, error) {
+
+	ret := proto_std_msgs.Empty{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Empty, msg is nil")
+	//}
+
+	return ret, nil
+}
+
+func ConvertHeader(rosMsg gengo_std_msgs.Header) (proto_std_msgs.Header, error) {
+
+	ret := proto_std_msgs.Header{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Header, msg is nil")
+	//}
+
+	ret.Seq = rosMsg.Seq
+
+	ret.FrameId = rosMsg.FrameId
+
+	return ret, nil
+}
+
+func ConvertInt16(rosMsg gengo_std_msgs.Int16) (proto_std_msgs.Int16, error) {
+
+	ret := proto_std_msgs.Int16{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int16, msg is nil")
+	//}
+
+	ret.Data = int32(rosMsg.Data)
+
+	return ret, nil
+}
+
+func ConvertInt16MultiArray(rosMsg gengo_std_msgs.Int16MultiArray) (proto_std_msgs.Int16MultiArray, error) {
+
+	ret := proto_std_msgs.Int16MultiArray{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Int16MultiArray, msg is nil")
+	//}
+
+	var err error
+
+	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
+	ret.Layout = &t0
+
+	if err != nil {
+		return ret, err
+	}
+
+	t1 := make([]int32, 0, len(rosMsg.Data))
+	for _, m := range rosMsg.Data {
+		a := int32(m)
+		t1 = append(t1, a)
 	}
 
 	ret.Data = append(ret.Data, t1...)
@@ -5581,92 +4936,15 @@ func ConvertInt64MultiArray(rosMsg gengo_std_msgs.Int64MultiArray) (proto_std_ms
 	return ret, nil
 }
 
-func ConvertString(rosMsg gengo_std_msgs.String) (proto_std_msgs.String, error) {
+func ConvertUInt32(rosMsg gengo_std_msgs.UInt32) (proto_std_msgs.UInt32, error) {
 
-	ret := proto_std_msgs.String{}
+	ret := proto_std_msgs.UInt32{}
 
 	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert String, msg is nil")
+	//  return ret, fmt.Errorf("Cannot not convert UInt32, msg is nil")
 	//}
 
 	ret.Data = rosMsg.Data
-
-	return ret, nil
-}
-
-func ConvertBool(rosMsg gengo_std_msgs.Bool) (proto_std_msgs.Bool, error) {
-
-	ret := proto_std_msgs.Bool{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Bool, msg is nil")
-	//}
-
-	ret.Data = rosMsg.Data
-
-	return ret, nil
-}
-
-func ConvertByte(rosMsg gengo_std_msgs.Byte) (proto_std_msgs.Byte, error) {
-
-	ret := proto_std_msgs.Byte{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Byte, msg is nil")
-	//}
-
-	ret.Data = uint32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertEmpty(rosMsg gengo_std_msgs.Empty) (proto_std_msgs.Empty, error) {
-
-	ret := proto_std_msgs.Empty{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Empty, msg is nil")
-	//}
-
-	return ret, nil
-}
-
-func ConvertFloat32(rosMsg gengo_std_msgs.Float32) (proto_std_msgs.Float32, error) {
-
-	ret := proto_std_msgs.Float32{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Float32, msg is nil")
-	//}
-
-	ret.Data = rosMsg.Data
-
-	return ret, nil
-}
-
-func ConvertFloat32MultiArray(rosMsg gengo_std_msgs.Float32MultiArray) (proto_std_msgs.Float32MultiArray, error) {
-
-	ret := proto_std_msgs.Float32MultiArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Float32MultiArray, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
-	ret.Layout = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]float32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		t1 = append(t1, m)
-	}
-
-	ret.Data = append(ret.Data, t1...)
 
 	return ret, nil
 }
@@ -5694,320 +4972,6 @@ func ConvertUInt32MultiArray(rosMsg gengo_std_msgs.UInt32MultiArray) (proto_std_
 	}
 
 	ret.Data = append(ret.Data, t1...)
-
-	return ret, nil
-}
-
-func ConvertUInt8(rosMsg gengo_std_msgs.UInt8) (proto_std_msgs.UInt8, error) {
-
-	ret := proto_std_msgs.UInt8{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt8, msg is nil")
-	//}
-
-	ret.Data = uint32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertChar(rosMsg gengo_std_msgs.Char) (proto_std_msgs.Char, error) {
-
-	ret := proto_std_msgs.Char{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Char, msg is nil")
-	//}
-
-	ret.Data = uint32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertInt8(rosMsg gengo_std_msgs.Int8) (proto_std_msgs.Int8, error) {
-
-	ret := proto_std_msgs.Int8{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int8, msg is nil")
-	//}
-
-	ret.Data = int32(rosMsg.Data)
-
-	return ret, nil
-}
-
-func ConvertInt8MultiArray(rosMsg gengo_std_msgs.Int8MultiArray) (proto_std_msgs.Int8MultiArray, error) {
-
-	ret := proto_std_msgs.Int8MultiArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Int8MultiArray, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
-	ret.Layout = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]int32, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		a := int32(m)
-		t1 = append(t1, a)
-	}
-
-	ret.Data = append(ret.Data, t1...)
-
-	return ret, nil
-}
-
-func ConvertMultiArrayDimension(rosMsg gengo_std_msgs.MultiArrayDimension) (proto_std_msgs.MultiArrayDimension, error) {
-
-	ret := proto_std_msgs.MultiArrayDimension{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert MultiArrayDimension, msg is nil")
-	//}
-
-	ret.Label = rosMsg.Label
-
-	ret.Size = rosMsg.Size
-
-	ret.Stride = rosMsg.Stride
-
-	return ret, nil
-}
-
-func ConvertMultiArrayLayout(rosMsg gengo_std_msgs.MultiArrayLayout) (proto_std_msgs.MultiArrayLayout, error) {
-
-	ret := proto_std_msgs.MultiArrayLayout{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert MultiArrayLayout, msg is nil")
-	//}
-
-	var err error
-
-	for _, m := range rosMsg.Dim {
-		c, err := ConvertMultiArrayDimension(m)
-		if err != nil {
-			return ret, err
-		}
-		ret.Dim = append(ret.Dim, &c)
-	}
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.DataOffset = rosMsg.DataOffset
-
-	return ret, nil
-}
-
-func ConvertUInt64MultiArray(rosMsg gengo_std_msgs.UInt64MultiArray) (proto_std_msgs.UInt64MultiArray, error) {
-
-	ret := proto_std_msgs.UInt64MultiArray{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert UInt64MultiArray, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertMultiArrayLayout(rosMsg.Layout)
-	ret.Layout = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1 := make([]uint64, 0, len(rosMsg.Data))
-	for _, m := range rosMsg.Data {
-		t1 = append(t1, m)
-	}
-
-	ret.Data = append(ret.Data, t1...)
-
-	return ret, nil
-}
-
-func ConvertIncrementAction(rosMsg gengo_teleop_tools_msgs.IncrementAction) (proto_teleop_tools_msgs.IncrementAction, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementAction{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementAction, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertIncrementActionGoal(rosMsg.ActionGoal)
-	ret.ActionGoal = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertIncrementActionResult(rosMsg.ActionResult)
-	ret.ActionResult = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertIncrementActionFeedback(rosMsg.ActionFeedback)
-	ret.ActionFeedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertIncrementActionFeedback(rosMsg gengo_teleop_tools_msgs.IncrementActionFeedback) (proto_teleop_tools_msgs.IncrementActionFeedback, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementActionFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementActionFeedback, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertIncrementFeedback(rosMsg.Feedback)
-	ret.Feedback = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertIncrementActionGoal(rosMsg gengo_teleop_tools_msgs.IncrementActionGoal) (proto_teleop_tools_msgs.IncrementActionGoal, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementActionGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementActionGoal, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalID(rosMsg.GoalId)
-	ret.GoalId = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertIncrementGoal(rosMsg.Goal)
-	ret.Goal = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertIncrementActionResult(rosMsg gengo_teleop_tools_msgs.IncrementActionResult) (proto_teleop_tools_msgs.IncrementActionResult, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementActionResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementActionResult, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	t1, err := ConvertGoalStatus(rosMsg.Status)
-	ret.Status = &t1
-
-	if err != nil {
-		return ret, err
-	}
-
-	t2, err := ConvertIncrementResult(rosMsg.Result)
-	ret.Result = &t2
-
-	if err != nil {
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func ConvertIncrementFeedback(rosMsg gengo_teleop_tools_msgs.IncrementFeedback) (proto_teleop_tools_msgs.IncrementFeedback, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementFeedback{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementFeedback, msg is nil")
-	//}
-
-	return ret, nil
-}
-
-func ConvertIncrementGoal(rosMsg gengo_teleop_tools_msgs.IncrementGoal) (proto_teleop_tools_msgs.IncrementGoal, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementGoal{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementGoal, msg is nil")
-	//}
-
-	t0 := make([]float32, 0, len(rosMsg.IncrementBy))
-	for _, m := range rosMsg.IncrementBy {
-		t0 = append(t0, m)
-	}
-
-	ret.IncrementBy = append(ret.IncrementBy, t0...)
-
-	return ret, nil
-}
-
-func ConvertIncrementResult(rosMsg gengo_teleop_tools_msgs.IncrementResult) (proto_teleop_tools_msgs.IncrementResult, error) {
-
-	ret := proto_teleop_tools_msgs.IncrementResult{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert IncrementResult, msg is nil")
-	//}
 
 	return ret, nil
 }
@@ -6044,6 +5008,21 @@ func ConvertPacket(rosMsg gengo_theora_image_transport.Packet) (proto_theora_ima
 	ret.Granulepos = rosMsg.Granulepos
 
 	ret.Packetno = rosMsg.Packetno
+
+	return ret, nil
+}
+
+func ConvertVelocity(rosMsg gengo_turtle_actionlib.Velocity) (proto_turtle_actionlib.Velocity, error) {
+
+	ret := proto_turtle_actionlib.Velocity{}
+
+	//if rosMsg == nil {
+	//  return ret, fmt.Errorf("Cannot not convert Velocity, msg is nil")
+	//}
+
+	ret.Linear = rosMsg.Linear
+
+	ret.Angular = rosMsg.Angular
 
 	return ret, nil
 }
@@ -6225,91 +5204,6 @@ func ConvertShapeResult(rosMsg gengo_turtle_actionlib.ShapeResult) (proto_turtle
 	return ret, nil
 }
 
-func ConvertVelocity(rosMsg gengo_turtle_actionlib.Velocity) (proto_turtle_actionlib.Velocity, error) {
-
-	ret := proto_turtle_actionlib.Velocity{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Velocity, msg is nil")
-	//}
-
-	ret.Linear = rosMsg.Linear
-
-	ret.Angular = rosMsg.Angular
-
-	return ret, nil
-}
-
-func ConvertSensorState(rosMsg gengo_turtlebot3_msgs.SensorState) (proto_turtlebot3_msgs.SensorState, error) {
-
-	ret := proto_turtlebot3_msgs.SensorState{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert SensorState, msg is nil")
-	//}
-
-	var err error
-
-	t0, err := ConvertHeader(rosMsg.Header)
-	ret.Header = &t0
-
-	if err != nil {
-		return ret, err
-	}
-
-	ret.Bumper = uint32(rosMsg.Bumper)
-
-	ret.Cliff = rosMsg.Cliff
-
-	ret.Sonar = rosMsg.Sonar
-
-	ret.Illumination = rosMsg.Illumination
-
-	ret.Led = uint32(rosMsg.Led)
-
-	ret.Button = uint32(rosMsg.Button)
-
-	ret.Torque = rosMsg.Torque
-
-	ret.LeftEncoder = rosMsg.LeftEncoder
-
-	ret.RightEncoder = rosMsg.RightEncoder
-
-	ret.Battery = rosMsg.Battery
-
-	return ret, nil
-}
-
-func ConvertSound(rosMsg gengo_turtlebot3_msgs.Sound) (proto_turtlebot3_msgs.Sound, error) {
-
-	ret := proto_turtlebot3_msgs.Sound{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert Sound, msg is nil")
-	//}
-
-	ret.Value = uint32(rosMsg.Value)
-
-	return ret, nil
-}
-
-func ConvertVersionInfo(rosMsg gengo_turtlebot3_msgs.VersionInfo) (proto_turtlebot3_msgs.VersionInfo, error) {
-
-	ret := proto_turtlebot3_msgs.VersionInfo{}
-
-	//if rosMsg == nil {
-	//  return ret, fmt.Errorf("Cannot not convert VersionInfo, msg is nil")
-	//}
-
-	ret.Hardware = rosMsg.Hardware
-
-	ret.Firmware = rosMsg.Firmware
-
-	ret.Software = rosMsg.Software
-
-	return ret, nil
-}
-
 func ConvertUniqueID(rosMsg gengo_uuid_msgs.UniqueID) (proto_uuid_msgs.UniqueID, error) {
 
 	ret := proto_uuid_msgs.UniqueID{}
@@ -6329,7 +5223,19 @@ func ConvertUniqueID(rosMsg gengo_uuid_msgs.UniqueID) (proto_uuid_msgs.UniqueID,
 	return ret, nil
 }
 
+func SerializeStateFeedback(msg proto_mpc_local_planner_msgs.StateFeedback) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeOptimalControlResult(msg proto_mpc_local_planner_msgs.OptimalControlResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
 func SerializePosition2DInt(msg proto_base_local_planner.Position2DInt) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeExtrinsics(msg proto_realsense2_camera.Extrinsics) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6341,119 +5247,7 @@ func SerializeMetadata(msg proto_realsense2_camera.Metadata) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeExtrinsics(msg proto_realsense2_camera.Extrinsics) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeVisoInfo(msg proto_viso2_ros.VisoInfo) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTypeDef(msg proto_rosapi.TypeDef) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestChar(msg proto_rosbridge_library.TestChar) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestDurationArray(msg proto_rosbridge_library.TestDurationArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestUInt8(msg proto_rosbridge_library.TestUInt8) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeNum(msg proto_rosbridge_library.Num) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestHeaderArray(msg proto_rosbridge_library.TestHeaderArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestHeaderTwo(msg proto_rosbridge_library.TestHeaderTwo) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestTimeArray(msg proto_rosbridge_library.TestTimeArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestUInt8FixedSizeArray16(msg proto_rosbridge_library.TestUInt8FixedSizeArray16) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestHeader(msg proto_rosbridge_library.TestHeader) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeConnectedClients(msg proto_rosbridge_msgs.ConnectedClients) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeConnectedClient(msg proto_rosbridge_msgs.ConnectedClient) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeIceServer(msg proto_webrtc_ros.IceServer) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestAction(msg proto_actionlib.TestAction) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestActionGoal(msg proto_actionlib.TestActionGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeTestFeedback(msg proto_actionlib.TestFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestRequestActionGoal(msg proto_actionlib.TestRequestActionGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestRequestActionResult(msg proto_actionlib.TestRequestActionResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestRequestFeedback(msg proto_actionlib.TestRequestFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwoIntsGoal(msg proto_actionlib.TwoIntsGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestActionResult(msg proto_actionlib.TestActionResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestGoal(msg proto_actionlib.TestGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwoIntsActionFeedback(msg proto_actionlib.TwoIntsActionFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwoIntsActionGoal(msg proto_actionlib.TwoIntsActionGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwoIntsActionResult(msg proto_actionlib.TwoIntsActionResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwoIntsResult(msg proto_actionlib.TwoIntsResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTestActionFeedback(msg proto_actionlib.TestActionFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6465,7 +5259,23 @@ func SerializeTestRequestActionFeedback(msg proto_actionlib.TestRequestActionFee
 	return proto.Marshal(&msg)
 }
 
+func SerializeTestRequestActionGoal(msg proto_actionlib.TestRequestActionGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTwoIntsActionResult(msg proto_actionlib.TwoIntsActionResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
 func SerializeTestRequestGoal(msg proto_actionlib.TestRequestGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestAction(msg proto_actionlib.TestAction) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestActionFeedback(msg proto_actionlib.TestActionFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6477,11 +5287,47 @@ func SerializeTestResult(msg proto_actionlib.TestResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeTwoIntsAction(msg proto_actionlib.TwoIntsAction) ([]byte, error) {
+func SerializeTwoIntsActionGoal(msg proto_actionlib.TwoIntsActionGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTwoIntsGoal(msg proto_actionlib.TwoIntsGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTwoIntsResult(msg proto_actionlib.TwoIntsResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func SerializeTwoIntsFeedback(msg proto_actionlib.TwoIntsFeedback) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestActionGoal(msg proto_actionlib.TestActionGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestActionResult(msg proto_actionlib.TestActionResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestGoal(msg proto_actionlib.TestGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestRequestActionResult(msg proto_actionlib.TestRequestActionResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTestRequestFeedback(msg proto_actionlib.TestRequestFeedback) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTwoIntsAction(msg proto_actionlib.TwoIntsAction) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeTwoIntsActionFeedback(msg proto_actionlib.TwoIntsActionFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6497,19 +5343,39 @@ func SerializeGoalStatusArray(msg proto_actionlib_msgs.GoalStatusArray) ([]byte,
 	return proto.Marshal(&msg)
 }
 
-func SerializeAveragingAction(msg proto_actionlib_tutorials.AveragingAction) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeAveragingActionGoal(msg proto_actionlib_tutorials.AveragingActionGoal) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeAveragingActionResult(msg proto_actionlib_tutorials.AveragingActionResult) ([]byte, error) {
+func SerializeFibonacciActionResult(msg proto_actionlib_tutorials.FibonacciActionResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeFibonacciGoal(msg proto_actionlib_tutorials.FibonacciGoal) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeAveragingAction(msg proto_actionlib_tutorials.AveragingAction) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeAveragingActionFeedback(msg proto_actionlib_tutorials.AveragingActionFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func SerializeAveragingResult(msg proto_actionlib_tutorials.AveragingResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeFibonacciFeedback(msg proto_actionlib_tutorials.FibonacciFeedback) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeFibonacciResult(msg proto_actionlib_tutorials.FibonacciResult) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeAveragingActionResult(msg proto_actionlib_tutorials.AveragingActionResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6529,27 +5395,7 @@ func SerializeFibonacciActionGoal(msg proto_actionlib_tutorials.FibonacciActionG
 	return proto.Marshal(&msg)
 }
 
-func SerializeFibonacciGoal(msg proto_actionlib_tutorials.FibonacciGoal) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFibonacciFeedback(msg proto_actionlib_tutorials.FibonacciFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeAveragingActionFeedback(msg proto_actionlib_tutorials.AveragingActionFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeFibonacciAction(msg proto_actionlib_tutorials.FibonacciAction) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFibonacciActionResult(msg proto_actionlib_tutorials.FibonacciActionResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFibonacciResult(msg proto_actionlib_tutorials.FibonacciResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6589,23 +5435,15 @@ func SerializeControllerStatistics(msg proto_controller_manager_msgs.ControllerS
 	return proto.Marshal(&msg)
 }
 
+func SerializeKeyValue(msg proto_diagnostic_msgs.KeyValue) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
 func SerializeDiagnosticArray(msg proto_diagnostic_msgs.DiagnosticArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func SerializeDiagnosticStatus(msg proto_diagnostic_msgs.DiagnosticStatus) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeKeyValue(msg proto_diagnostic_msgs.KeyValue) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeConfig(msg proto_dynamic_reconfigure.Config) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeGroup(msg proto_dynamic_reconfigure.Group) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6617,7 +5455,15 @@ func SerializeIntParameter(msg proto_dynamic_reconfigure.IntParameter) ([]byte, 
 	return proto.Marshal(&msg)
 }
 
+func SerializeSensorLevels(msg proto_dynamic_reconfigure.SensorLevels) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
 func SerializeBoolParameter(msg proto_dynamic_reconfigure.BoolParameter) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeConfig(msg proto_dynamic_reconfigure.Config) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6629,11 +5475,11 @@ func SerializeDoubleParameter(msg proto_dynamic_reconfigure.DoubleParameter) ([]
 	return proto.Marshal(&msg)
 }
 
-func SerializeParamDescription(msg proto_dynamic_reconfigure.ParamDescription) ([]byte, error) {
+func SerializeGroup(msg proto_dynamic_reconfigure.Group) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeSensorLevels(msg proto_dynamic_reconfigure.SensorLevels) ([]byte, error) {
+func SerializeParamDescription(msg proto_dynamic_reconfigure.ParamDescription) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6641,59 +5487,7 @@ func SerializeStrParameter(msg proto_dynamic_reconfigure.StrParameter) ([]byte, 
 	return proto.Marshal(&msg)
 }
 
-func SerializeDetectionInfo(msg proto_find_object_2d.DetectionInfo) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeObjectsStamped(msg proto_find_object_2d.ObjectsStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeAccel(msg proto_geometry_msgs.Accel) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePoint(msg proto_geometry_msgs.Point) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePoint32(msg proto_geometry_msgs.Point32) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePointStamped(msg proto_geometry_msgs.PointStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwist(msg proto_geometry_msgs.Twist) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwistWithCovarianceStamped(msg proto_geometry_msgs.TwistWithCovarianceStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeVector3Stamped(msg proto_geometry_msgs.Vector3Stamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePolygonStamped(msg proto_geometry_msgs.PolygonStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeVector3(msg proto_geometry_msgs.Vector3) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeWrenchStamped(msg proto_geometry_msgs.WrenchStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeAccelWithCovarianceStamped(msg proto_geometry_msgs.AccelWithCovarianceStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInertiaStamped(msg proto_geometry_msgs.InertiaStamped) ([]byte, error) {
+func SerializeAccelWithCovariance(msg proto_geometry_msgs.AccelWithCovariance) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6701,7 +5495,7 @@ func SerializePolygon(msg proto_geometry_msgs.Polygon) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializePoseArray(msg proto_geometry_msgs.PoseArray) ([]byte, error) {
+func SerializePose(msg proto_geometry_msgs.Pose) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6709,55 +5503,7 @@ func SerializePoseWithCovariance(msg proto_geometry_msgs.PoseWithCovariance) ([]
 	return proto.Marshal(&msg)
 }
 
-func SerializePoseWithCovarianceStamped(msg proto_geometry_msgs.PoseWithCovarianceStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeAccelWithCovariance(msg proto_geometry_msgs.AccelWithCovariance) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeQuaternionStamped(msg proto_geometry_msgs.QuaternionStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeTransform(msg proto_geometry_msgs.Transform) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeWrench(msg proto_geometry_msgs.Wrench) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeAccelStamped(msg proto_geometry_msgs.AccelStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInertia(msg proto_geometry_msgs.Inertia) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePoseStamped(msg proto_geometry_msgs.PoseStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeQuaternion(msg proto_geometry_msgs.Quaternion) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTransformStamped(msg proto_geometry_msgs.TransformStamped) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTwistWithCovariance(msg proto_geometry_msgs.TwistWithCovariance) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePose(msg proto_geometry_msgs.Pose) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePose2D(msg proto_geometry_msgs.Pose2D) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6765,135 +5511,163 @@ func SerializeTwistStamped(msg proto_geometry_msgs.TwistStamped) ([]byte, error)
 	return proto.Marshal(&msg)
 }
 
-func SerializeOptimalControlResult(msg proto_mpc_local_planner_msgs.OptimalControlResult) ([]byte, error) {
+func SerializeTwist(msg proto_geometry_msgs.Twist) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeStateFeedback(msg proto_mpc_local_planner_msgs.StateFeedback) ([]byte, error) {
+func SerializeTwistWithCovariance(msg proto_geometry_msgs.TwistWithCovariance) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializePoint2DArrayStamped(msg proto_opencv_apps.Point2DArrayStamped) ([]byte, error) {
+func SerializePoint(msg proto_geometry_msgs.Point) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRotatedRectArrayStamped(msg proto_opencv_apps.RotatedRectArrayStamped) ([]byte, error) {
+func SerializePose2D(msg proto_geometry_msgs.Pose2D) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeSize(msg proto_opencv_apps.Size) ([]byte, error) {
+func SerializePoseWithCovarianceStamped(msg proto_geometry_msgs.PoseWithCovarianceStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeCircleArray(msg proto_opencv_apps.CircleArray) ([]byte, error) {
+func SerializeTransformStamped(msg proto_geometry_msgs.TransformStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFace(msg proto_opencv_apps.Face) ([]byte, error) {
+func SerializeVector3Stamped(msg proto_geometry_msgs.Vector3Stamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFlow(msg proto_opencv_apps.Flow) ([]byte, error) {
+func SerializeWrench(msg proto_geometry_msgs.Wrench) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFlowArrayStamped(msg proto_opencv_apps.FlowArrayStamped) ([]byte, error) {
+func SerializeAccelWithCovarianceStamped(msg proto_geometry_msgs.AccelWithCovarianceStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRectArrayStamped(msg proto_opencv_apps.RectArrayStamped) ([]byte, error) {
+func SerializePoint32(msg proto_geometry_msgs.Point32) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRotatedRect(msg proto_opencv_apps.RotatedRect) ([]byte, error) {
+func SerializePolygonStamped(msg proto_geometry_msgs.PolygonStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFaceArray(msg proto_opencv_apps.FaceArray) ([]byte, error) {
+func SerializeQuaternionStamped(msg proto_geometry_msgs.QuaternionStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeMoment(msg proto_opencv_apps.Moment) ([]byte, error) {
+func SerializeQuaternion(msg proto_geometry_msgs.Quaternion) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeMomentArrayStamped(msg proto_opencv_apps.MomentArrayStamped) ([]byte, error) {
+func SerializeAccelStamped(msg proto_geometry_msgs.AccelStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeContourArray(msg proto_opencv_apps.ContourArray) ([]byte, error) {
+func SerializePointStamped(msg proto_geometry_msgs.PointStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRect(msg proto_opencv_apps.Rect) ([]byte, error) {
+func SerializePoseArray(msg proto_geometry_msgs.PoseArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRotatedRectStamped(msg proto_opencv_apps.RotatedRectStamped) ([]byte, error) {
+func SerializePoseStamped(msg proto_geometry_msgs.PoseStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFaceArrayStamped(msg proto_opencv_apps.FaceArrayStamped) ([]byte, error) {
+func SerializeInertia(msg proto_geometry_msgs.Inertia) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeLine(msg proto_opencv_apps.Line) ([]byte, error) {
+func SerializeWrenchStamped(msg proto_geometry_msgs.WrenchStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializePoint2DStamped(msg proto_opencv_apps.Point2DStamped) ([]byte, error) {
+func SerializeAccel(msg proto_geometry_msgs.Accel) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeCircleArrayStamped(msg proto_opencv_apps.CircleArrayStamped) ([]byte, error) {
+func SerializeInertiaStamped(msg proto_geometry_msgs.InertiaStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeLineArrayStamped(msg proto_opencv_apps.LineArrayStamped) ([]byte, error) {
+func SerializeTwistWithCovarianceStamped(msg proto_geometry_msgs.TwistWithCovarianceStamped) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializePoint2DArray(msg proto_opencv_apps.Point2DArray) ([]byte, error) {
+func SerializeVector3(msg proto_geometry_msgs.Vector3) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRectArray(msg proto_opencv_apps.RectArray) ([]byte, error) {
+func SerializeGetMapActionFeedback(msg proto_nav_msgs.GetMapActionFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeCircle(msg proto_opencv_apps.Circle) ([]byte, error) {
+func SerializeGetMapActionGoal(msg proto_nav_msgs.GetMapActionGoal) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeContour(msg proto_opencv_apps.Contour) ([]byte, error) {
+func SerializeMapMetaData(msg proto_nav_msgs.MapMetaData) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeContourArrayStamped(msg proto_opencv_apps.ContourArrayStamped) ([]byte, error) {
+func SerializeOdometry(msg proto_nav_msgs.Odometry) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFlowArray(msg proto_opencv_apps.FlowArray) ([]byte, error) {
+func SerializeGetMapAction(msg proto_nav_msgs.GetMapAction) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeFlowStamped(msg proto_opencv_apps.FlowStamped) ([]byte, error) {
+func SerializeGetMapActionResult(msg proto_nav_msgs.GetMapActionResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeMomentArray(msg proto_opencv_apps.MomentArray) ([]byte, error) {
+func SerializeGetMapFeedback(msg proto_nav_msgs.GetMapFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeLineArray(msg proto_opencv_apps.LineArray) ([]byte, error) {
+func SerializeGetMapGoal(msg proto_nav_msgs.GetMapGoal) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializePoint2D(msg proto_opencv_apps.Point2D) ([]byte, error) {
+func SerializeGetMapResult(msg proto_nav_msgs.GetMapResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRotatedRectArray(msg proto_opencv_apps.RotatedRectArray) ([]byte, error) {
+func SerializeGridCells(msg proto_nav_msgs.GridCells) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeOccupancyGrid(msg proto_nav_msgs.OccupancyGrid) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializePath(msg proto_nav_msgs.Path) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeStatisticsNames(msg proto_plotjuggler_msgs.StatisticsNames) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeStatisticsValues(msg proto_plotjuggler_msgs.StatisticsValues) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeDataPoint(msg proto_plotjuggler_msgs.DataPoint) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeDataPoints(msg proto_plotjuggler_msgs.DataPoints) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeDictionary(msg proto_plotjuggler_msgs.Dictionary) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6921,7 +5695,7 @@ func SerializeHeaderString(msg proto_rospy_tutorials.HeaderString) ([]byte, erro
 	return proto.Marshal(&msg)
 }
 
-func SerializeRelativeHumidity(msg proto_sensor_msgs.RelativeHumidity) ([]byte, error) {
+func SerializeTemperature(msg proto_sensor_msgs.Temperature) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6929,11 +5703,7 @@ func SerializeBatteryState(msg proto_sensor_msgs.BatteryState) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeCompressedImage(msg proto_sensor_msgs.CompressedImage) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeIlluminance(msg proto_sensor_msgs.Illuminance) ([]byte, error) {
+func SerializeFluidPressure(msg proto_sensor_msgs.FluidPressure) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6941,11 +5711,11 @@ func SerializeMagneticField(msg proto_sensor_msgs.MagneticField) ([]byte, error)
 	return proto.Marshal(&msg)
 }
 
-func SerializeMultiEchoLaserScan(msg proto_sensor_msgs.MultiEchoLaserScan) ([]byte, error) {
+func SerializePointField(msg proto_sensor_msgs.PointField) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeRange(msg proto_sensor_msgs.Range) ([]byte, error) {
+func SerializeMultiEchoLaserScan(msg proto_sensor_msgs.MultiEchoLaserScan) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -6953,63 +5723,7 @@ func SerializePointCloud(msg proto_sensor_msgs.PointCloud) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeMultiDOFJointState(msg proto_sensor_msgs.MultiDOFJointState) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeChannelFloat32(msg proto_sensor_msgs.ChannelFloat32) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeImage(msg proto_sensor_msgs.Image) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeImu(msg proto_sensor_msgs.Imu) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeJoyFeedbackArray(msg proto_sensor_msgs.JoyFeedbackArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePointField(msg proto_sensor_msgs.PointField) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeRegionOfInterest(msg proto_sensor_msgs.RegionOfInterest) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializePointCloud2(msg proto_sensor_msgs.PointCloud2) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeCameraInfo(msg proto_sensor_msgs.CameraInfo) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeJoyFeedback(msg proto_sensor_msgs.JoyFeedback) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeLaserScan(msg proto_sensor_msgs.LaserScan) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeJoy(msg proto_sensor_msgs.Joy) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeLaserEcho(msg proto_sensor_msgs.LaserEcho) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeNavSatFix(msg proto_sensor_msgs.NavSatFix) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFluidPressure(msg proto_sensor_msgs.FluidPressure) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7017,15 +5731,75 @@ func SerializeJointState(msg proto_sensor_msgs.JointState) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeNavSatStatus(msg proto_sensor_msgs.NavSatStatus) ([]byte, error) {
+func SerializeJoyFeedback(msg proto_sensor_msgs.JoyFeedback) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeTemperature(msg proto_sensor_msgs.Temperature) ([]byte, error) {
+func SerializeLaserEcho(msg proto_sensor_msgs.LaserEcho) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeChannelFloat32(msg proto_sensor_msgs.ChannelFloat32) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeCompressedImage(msg proto_sensor_msgs.CompressedImage) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeImage(msg proto_sensor_msgs.Image) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeJoyFeedbackArray(msg proto_sensor_msgs.JoyFeedbackArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeNavSatFix(msg proto_sensor_msgs.NavSatFix) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeRange(msg proto_sensor_msgs.Range) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeRelativeHumidity(msg proto_sensor_msgs.RelativeHumidity) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializePointCloud2(msg proto_sensor_msgs.PointCloud2) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func SerializeTimeReference(msg proto_sensor_msgs.TimeReference) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeImu(msg proto_sensor_msgs.Imu) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeJoy(msg proto_sensor_msgs.Joy) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeNavSatStatus(msg proto_sensor_msgs.NavSatStatus) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeLaserScan(msg proto_sensor_msgs.LaserScan) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeMultiDOFJointState(msg proto_sensor_msgs.MultiDOFJointState) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeCameraInfo(msg proto_sensor_msgs.CameraInfo) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeIlluminance(msg proto_sensor_msgs.Illuminance) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7038,18 +5812,6 @@ func SerializeSmachContainerStatus(msg proto_smach_msgs.SmachContainerStatus) ([
 }
 
 func SerializeSmachContainerStructure(msg proto_smach_msgs.SmachContainerStructure) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeSoundRequestResult(msg proto_sound_play.SoundRequestResult) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeSoundRequest(msg proto_sound_play.SoundRequest) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeSoundRequestAction(msg proto_sound_play.SoundRequestAction) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7073,107 +5835,15 @@ func SerializeSoundRequestGoal(msg proto_sound_play.SoundRequestGoal) ([]byte, e
 	return proto.Marshal(&msg)
 }
 
-func SerializeDuration(msg proto_std_msgs.Duration) ([]byte, error) {
+func SerializeSoundRequestResult(msg proto_sound_play.SoundRequestResult) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeInt64(msg proto_std_msgs.Int64) ([]byte, error) {
+func SerializeSoundRequest(msg proto_sound_play.SoundRequest) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeUInt64(msg proto_std_msgs.UInt64) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFloat64MultiArray(msg proto_std_msgs.Float64MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInt16(msg proto_std_msgs.Int16) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeHeader(msg proto_std_msgs.Header) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt32(msg proto_std_msgs.UInt32) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeByteMultiArray(msg proto_std_msgs.ByteMultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInt16MultiArray(msg proto_std_msgs.Int16MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeTime(msg proto_std_msgs.Time) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt16(msg proto_std_msgs.UInt16) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt16MultiArray(msg proto_std_msgs.UInt16MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt8MultiArray(msg proto_std_msgs.UInt8MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeColorRGBA(msg proto_std_msgs.ColorRGBA) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFloat64(msg proto_std_msgs.Float64) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInt32(msg proto_std_msgs.Int32) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInt32MultiArray(msg proto_std_msgs.Int32MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeInt64MultiArray(msg proto_std_msgs.Int64MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeString(msg proto_std_msgs.String) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeBool(msg proto_std_msgs.Bool) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeByte(msg proto_std_msgs.Byte) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeEmpty(msg proto_std_msgs.Empty) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFloat32(msg proto_std_msgs.Float32) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeFloat32MultiArray(msg proto_std_msgs.Float32MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt32MultiArray(msg proto_std_msgs.UInt32MultiArray) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeUInt8(msg proto_std_msgs.UInt8) ([]byte, error) {
+func SerializeSoundRequestAction(msg proto_sound_play.SoundRequestAction) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7185,11 +5855,19 @@ func SerializeInt8(msg proto_std_msgs.Int8) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeInt8MultiArray(msg proto_std_msgs.Int8MultiArray) ([]byte, error) {
+func SerializeUInt16(msg proto_std_msgs.UInt16) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeMultiArrayDimension(msg proto_std_msgs.MultiArrayDimension) ([]byte, error) {
+func SerializeFloat32MultiArray(msg proto_std_msgs.Float32MultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeByteMultiArray(msg proto_std_msgs.ByteMultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeFloat64MultiArray(msg proto_std_msgs.Float64MultiArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7197,39 +5875,111 @@ func SerializeMultiArrayLayout(msg proto_std_msgs.MultiArrayLayout) ([]byte, err
 	return proto.Marshal(&msg)
 }
 
+func SerializeTime(msg proto_std_msgs.Time) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeUInt64(msg proto_std_msgs.UInt64) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeUInt8MultiArray(msg proto_std_msgs.UInt8MultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeFloat32(msg proto_std_msgs.Float32) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeInt32(msg proto_std_msgs.Int32) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeInt8MultiArray(msg proto_std_msgs.Int8MultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeBool(msg proto_std_msgs.Bool) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeMultiArrayDimension(msg proto_std_msgs.MultiArrayDimension) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
 func SerializeUInt64MultiArray(msg proto_std_msgs.UInt64MultiArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementAction(msg proto_teleop_tools_msgs.IncrementAction) ([]byte, error) {
+func SerializeUInt8(msg proto_std_msgs.UInt8) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementActionFeedback(msg proto_teleop_tools_msgs.IncrementActionFeedback) ([]byte, error) {
+func SerializeDuration(msg proto_std_msgs.Duration) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementActionGoal(msg proto_teleop_tools_msgs.IncrementActionGoal) ([]byte, error) {
+func SerializeFloat64(msg proto_std_msgs.Float64) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementActionResult(msg proto_teleop_tools_msgs.IncrementActionResult) ([]byte, error) {
+func SerializeString(msg proto_std_msgs.String) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementFeedback(msg proto_teleop_tools_msgs.IncrementFeedback) ([]byte, error) {
+func SerializeUInt16MultiArray(msg proto_std_msgs.UInt16MultiArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementGoal(msg proto_teleop_tools_msgs.IncrementGoal) ([]byte, error) {
+func SerializeInt32MultiArray(msg proto_std_msgs.Int32MultiArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
-func SerializeIncrementResult(msg proto_teleop_tools_msgs.IncrementResult) ([]byte, error) {
+func SerializeInt64(msg proto_std_msgs.Int64) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeByte(msg proto_std_msgs.Byte) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeColorRGBA(msg proto_std_msgs.ColorRGBA) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeEmpty(msg proto_std_msgs.Empty) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeHeader(msg proto_std_msgs.Header) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeInt16(msg proto_std_msgs.Int16) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeInt16MultiArray(msg proto_std_msgs.Int16MultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeInt64MultiArray(msg proto_std_msgs.Int64MultiArray) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeUInt32(msg proto_std_msgs.UInt32) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeUInt32MultiArray(msg proto_std_msgs.UInt32MultiArray) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func SerializePacket(msg proto_theora_image_transport.Packet) ([]byte, error) {
+	return proto.Marshal(&msg)
+}
+
+func SerializeVelocity(msg proto_turtle_actionlib.Velocity) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
@@ -7261,32 +6011,31 @@ func SerializeShapeResult(msg proto_turtle_actionlib.ShapeResult) ([]byte, error
 	return proto.Marshal(&msg)
 }
 
-func SerializeVelocity(msg proto_turtle_actionlib.Velocity) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeSensorState(msg proto_turtlebot3_msgs.SensorState) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeSound(msg proto_turtlebot3_msgs.Sound) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
-func SerializeVersionInfo(msg proto_turtlebot3_msgs.VersionInfo) ([]byte, error) {
-	return proto.Marshal(&msg)
-}
-
 func SerializeUniqueID(msg proto_uuid_msgs.UniqueID) ([]byte, error) {
 	return proto.Marshal(&msg)
 }
 
 func GetBuilderFromName(name string) (iface.Builder, error) {
 	switch name {
+	case "StateFeedback":
+		return &channel.BuilderUtil[gengo_mpc_local_planner_msgs.StateFeedback, proto_mpc_local_planner_msgs.StateFeedback]{
+			MsgConverter: ConvertStateFeedback,
+			Serializer:   SerializeStateFeedback,
+		}, nil
+	case "OptimalControlResult":
+		return &channel.BuilderUtil[gengo_mpc_local_planner_msgs.OptimalControlResult, proto_mpc_local_planner_msgs.OptimalControlResult]{
+			MsgConverter: ConvertOptimalControlResult,
+			Serializer:   SerializeOptimalControlResult,
+		}, nil
 	case "Position2DInt":
 		return &channel.BuilderUtil[gengo_base_local_planner.Position2DInt, proto_base_local_planner.Position2DInt]{
 			MsgConverter: ConvertPosition2DInt,
 			Serializer:   SerializePosition2DInt,
+		}, nil
+	case "Extrinsics":
+		return &channel.BuilderUtil[gengo_realsense2_camera.Extrinsics, proto_realsense2_camera.Extrinsics]{
+			MsgConverter: ConvertExtrinsics,
+			Serializer:   SerializeExtrinsics,
 		}, nil
 	case "IMUInfo":
 		return &channel.BuilderUtil[gengo_realsense2_camera.IMUInfo, proto_realsense2_camera.IMUInfo]{
@@ -7298,150 +6047,10 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertMetadata,
 			Serializer:   SerializeMetadata,
 		}, nil
-	case "Extrinsics":
-		return &channel.BuilderUtil[gengo_realsense2_camera.Extrinsics, proto_realsense2_camera.Extrinsics]{
-			MsgConverter: ConvertExtrinsics,
-			Serializer:   SerializeExtrinsics,
-		}, nil
-	case "VisoInfo":
-		return &channel.BuilderUtil[gengo_viso2_ros.VisoInfo, proto_viso2_ros.VisoInfo]{
-			MsgConverter: ConvertVisoInfo,
-			Serializer:   SerializeVisoInfo,
-		}, nil
-	case "TypeDef":
-		return &channel.BuilderUtil[gengo_rosapi.TypeDef, proto_rosapi.TypeDef]{
-			MsgConverter: ConvertTypeDef,
-			Serializer:   SerializeTypeDef,
-		}, nil
-	case "TestChar":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestChar, proto_rosbridge_library.TestChar]{
-			MsgConverter: ConvertTestChar,
-			Serializer:   SerializeTestChar,
-		}, nil
-	case "TestDurationArray":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestDurationArray, proto_rosbridge_library.TestDurationArray]{
-			MsgConverter: ConvertTestDurationArray,
-			Serializer:   SerializeTestDurationArray,
-		}, nil
-	case "TestUInt8":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestUInt8, proto_rosbridge_library.TestUInt8]{
-			MsgConverter: ConvertTestUInt8,
-			Serializer:   SerializeTestUInt8,
-		}, nil
-	case "Num":
-		return &channel.BuilderUtil[gengo_rosbridge_library.Num, proto_rosbridge_library.Num]{
-			MsgConverter: ConvertNum,
-			Serializer:   SerializeNum,
-		}, nil
-	case "TestHeaderArray":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestHeaderArray, proto_rosbridge_library.TestHeaderArray]{
-			MsgConverter: ConvertTestHeaderArray,
-			Serializer:   SerializeTestHeaderArray,
-		}, nil
-	case "TestHeaderTwo":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestHeaderTwo, proto_rosbridge_library.TestHeaderTwo]{
-			MsgConverter: ConvertTestHeaderTwo,
-			Serializer:   SerializeTestHeaderTwo,
-		}, nil
-	case "TestTimeArray":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestTimeArray, proto_rosbridge_library.TestTimeArray]{
-			MsgConverter: ConvertTestTimeArray,
-			Serializer:   SerializeTestTimeArray,
-		}, nil
-	case "TestUInt8FixedSizeArray16":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestUInt8FixedSizeArray16, proto_rosbridge_library.TestUInt8FixedSizeArray16]{
-			MsgConverter: ConvertTestUInt8FixedSizeArray16,
-			Serializer:   SerializeTestUInt8FixedSizeArray16,
-		}, nil
-	case "TestHeader":
-		return &channel.BuilderUtil[gengo_rosbridge_library.TestHeader, proto_rosbridge_library.TestHeader]{
-			MsgConverter: ConvertTestHeader,
-			Serializer:   SerializeTestHeader,
-		}, nil
-	case "ConnectedClients":
-		return &channel.BuilderUtil[gengo_rosbridge_msgs.ConnectedClients, proto_rosbridge_msgs.ConnectedClients]{
-			MsgConverter: ConvertConnectedClients,
-			Serializer:   SerializeConnectedClients,
-		}, nil
-	case "ConnectedClient":
-		return &channel.BuilderUtil[gengo_rosbridge_msgs.ConnectedClient, proto_rosbridge_msgs.ConnectedClient]{
-			MsgConverter: ConvertConnectedClient,
-			Serializer:   SerializeConnectedClient,
-		}, nil
-	case "IceServer":
-		return &channel.BuilderUtil[gengo_webrtc_ros.IceServer, proto_webrtc_ros.IceServer]{
-			MsgConverter: ConvertIceServer,
-			Serializer:   SerializeIceServer,
-		}, nil
-	case "TestAction":
-		return &channel.BuilderUtil[gengo_actionlib.TestAction, proto_actionlib.TestAction]{
-			MsgConverter: ConvertTestAction,
-			Serializer:   SerializeTestAction,
-		}, nil
-	case "TestActionGoal":
-		return &channel.BuilderUtil[gengo_actionlib.TestActionGoal, proto_actionlib.TestActionGoal]{
-			MsgConverter: ConvertTestActionGoal,
-			Serializer:   SerializeTestActionGoal,
-		}, nil
 	case "TestFeedback":
 		return &channel.BuilderUtil[gengo_actionlib.TestFeedback, proto_actionlib.TestFeedback]{
 			MsgConverter: ConvertTestFeedback,
 			Serializer:   SerializeTestFeedback,
-		}, nil
-	case "TestRequestActionGoal":
-		return &channel.BuilderUtil[gengo_actionlib.TestRequestActionGoal, proto_actionlib.TestRequestActionGoal]{
-			MsgConverter: ConvertTestRequestActionGoal,
-			Serializer:   SerializeTestRequestActionGoal,
-		}, nil
-	case "TestRequestActionResult":
-		return &channel.BuilderUtil[gengo_actionlib.TestRequestActionResult, proto_actionlib.TestRequestActionResult]{
-			MsgConverter: ConvertTestRequestActionResult,
-			Serializer:   SerializeTestRequestActionResult,
-		}, nil
-	case "TestRequestFeedback":
-		return &channel.BuilderUtil[gengo_actionlib.TestRequestFeedback, proto_actionlib.TestRequestFeedback]{
-			MsgConverter: ConvertTestRequestFeedback,
-			Serializer:   SerializeTestRequestFeedback,
-		}, nil
-	case "TwoIntsGoal":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsGoal, proto_actionlib.TwoIntsGoal]{
-			MsgConverter: ConvertTwoIntsGoal,
-			Serializer:   SerializeTwoIntsGoal,
-		}, nil
-	case "TestActionResult":
-		return &channel.BuilderUtil[gengo_actionlib.TestActionResult, proto_actionlib.TestActionResult]{
-			MsgConverter: ConvertTestActionResult,
-			Serializer:   SerializeTestActionResult,
-		}, nil
-	case "TestGoal":
-		return &channel.BuilderUtil[gengo_actionlib.TestGoal, proto_actionlib.TestGoal]{
-			MsgConverter: ConvertTestGoal,
-			Serializer:   SerializeTestGoal,
-		}, nil
-	case "TwoIntsActionFeedback":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionFeedback, proto_actionlib.TwoIntsActionFeedback]{
-			MsgConverter: ConvertTwoIntsActionFeedback,
-			Serializer:   SerializeTwoIntsActionFeedback,
-		}, nil
-	case "TwoIntsActionGoal":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionGoal, proto_actionlib.TwoIntsActionGoal]{
-			MsgConverter: ConvertTwoIntsActionGoal,
-			Serializer:   SerializeTwoIntsActionGoal,
-		}, nil
-	case "TwoIntsActionResult":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionResult, proto_actionlib.TwoIntsActionResult]{
-			MsgConverter: ConvertTwoIntsActionResult,
-			Serializer:   SerializeTwoIntsActionResult,
-		}, nil
-	case "TwoIntsResult":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsResult, proto_actionlib.TwoIntsResult]{
-			MsgConverter: ConvertTwoIntsResult,
-			Serializer:   SerializeTwoIntsResult,
-		}, nil
-	case "TestActionFeedback":
-		return &channel.BuilderUtil[gengo_actionlib.TestActionFeedback, proto_actionlib.TestActionFeedback]{
-			MsgConverter: ConvertTestActionFeedback,
-			Serializer:   SerializeTestActionFeedback,
 		}, nil
 	case "TestRequestAction":
 		return &channel.BuilderUtil[gengo_actionlib.TestRequestAction, proto_actionlib.TestRequestAction]{
@@ -7453,10 +6062,30 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertTestRequestActionFeedback,
 			Serializer:   SerializeTestRequestActionFeedback,
 		}, nil
+	case "TestRequestActionGoal":
+		return &channel.BuilderUtil[gengo_actionlib.TestRequestActionGoal, proto_actionlib.TestRequestActionGoal]{
+			MsgConverter: ConvertTestRequestActionGoal,
+			Serializer:   SerializeTestRequestActionGoal,
+		}, nil
+	case "TwoIntsActionResult":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionResult, proto_actionlib.TwoIntsActionResult]{
+			MsgConverter: ConvertTwoIntsActionResult,
+			Serializer:   SerializeTwoIntsActionResult,
+		}, nil
 	case "TestRequestGoal":
 		return &channel.BuilderUtil[gengo_actionlib.TestRequestGoal, proto_actionlib.TestRequestGoal]{
 			MsgConverter: ConvertTestRequestGoal,
 			Serializer:   SerializeTestRequestGoal,
+		}, nil
+	case "TestAction":
+		return &channel.BuilderUtil[gengo_actionlib.TestAction, proto_actionlib.TestAction]{
+			MsgConverter: ConvertTestAction,
+			Serializer:   SerializeTestAction,
+		}, nil
+	case "TestActionFeedback":
+		return &channel.BuilderUtil[gengo_actionlib.TestActionFeedback, proto_actionlib.TestActionFeedback]{
+			MsgConverter: ConvertTestActionFeedback,
+			Serializer:   SerializeTestActionFeedback,
 		}, nil
 	case "TestRequestResult":
 		return &channel.BuilderUtil[gengo_actionlib.TestRequestResult, proto_actionlib.TestRequestResult]{
@@ -7468,15 +6097,60 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertTestResult,
 			Serializer:   SerializeTestResult,
 		}, nil
-	case "TwoIntsAction":
-		return &channel.BuilderUtil[gengo_actionlib.TwoIntsAction, proto_actionlib.TwoIntsAction]{
-			MsgConverter: ConvertTwoIntsAction,
-			Serializer:   SerializeTwoIntsAction,
+	case "TwoIntsActionGoal":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionGoal, proto_actionlib.TwoIntsActionGoal]{
+			MsgConverter: ConvertTwoIntsActionGoal,
+			Serializer:   SerializeTwoIntsActionGoal,
+		}, nil
+	case "TwoIntsGoal":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsGoal, proto_actionlib.TwoIntsGoal]{
+			MsgConverter: ConvertTwoIntsGoal,
+			Serializer:   SerializeTwoIntsGoal,
+		}, nil
+	case "TwoIntsResult":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsResult, proto_actionlib.TwoIntsResult]{
+			MsgConverter: ConvertTwoIntsResult,
+			Serializer:   SerializeTwoIntsResult,
 		}, nil
 	case "TwoIntsFeedback":
 		return &channel.BuilderUtil[gengo_actionlib.TwoIntsFeedback, proto_actionlib.TwoIntsFeedback]{
 			MsgConverter: ConvertTwoIntsFeedback,
 			Serializer:   SerializeTwoIntsFeedback,
+		}, nil
+	case "TestActionGoal":
+		return &channel.BuilderUtil[gengo_actionlib.TestActionGoal, proto_actionlib.TestActionGoal]{
+			MsgConverter: ConvertTestActionGoal,
+			Serializer:   SerializeTestActionGoal,
+		}, nil
+	case "TestActionResult":
+		return &channel.BuilderUtil[gengo_actionlib.TestActionResult, proto_actionlib.TestActionResult]{
+			MsgConverter: ConvertTestActionResult,
+			Serializer:   SerializeTestActionResult,
+		}, nil
+	case "TestGoal":
+		return &channel.BuilderUtil[gengo_actionlib.TestGoal, proto_actionlib.TestGoal]{
+			MsgConverter: ConvertTestGoal,
+			Serializer:   SerializeTestGoal,
+		}, nil
+	case "TestRequestActionResult":
+		return &channel.BuilderUtil[gengo_actionlib.TestRequestActionResult, proto_actionlib.TestRequestActionResult]{
+			MsgConverter: ConvertTestRequestActionResult,
+			Serializer:   SerializeTestRequestActionResult,
+		}, nil
+	case "TestRequestFeedback":
+		return &channel.BuilderUtil[gengo_actionlib.TestRequestFeedback, proto_actionlib.TestRequestFeedback]{
+			MsgConverter: ConvertTestRequestFeedback,
+			Serializer:   SerializeTestRequestFeedback,
+		}, nil
+	case "TwoIntsAction":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsAction, proto_actionlib.TwoIntsAction]{
+			MsgConverter: ConvertTwoIntsAction,
+			Serializer:   SerializeTwoIntsAction,
+		}, nil
+	case "TwoIntsActionFeedback":
+		return &channel.BuilderUtil[gengo_actionlib.TwoIntsActionFeedback, proto_actionlib.TwoIntsActionFeedback]{
+			MsgConverter: ConvertTwoIntsActionFeedback,
+			Serializer:   SerializeTwoIntsActionFeedback,
 		}, nil
 	case "GoalID":
 		return &channel.BuilderUtil[gengo_actionlib_msgs.GoalID, proto_actionlib_msgs.GoalID]{
@@ -7493,25 +6167,50 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertGoalStatusArray,
 			Serializer:   SerializeGoalStatusArray,
 		}, nil
-	case "AveragingAction":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingAction, proto_actionlib_tutorials.AveragingAction]{
-			MsgConverter: ConvertAveragingAction,
-			Serializer:   SerializeAveragingAction,
-		}, nil
 	case "AveragingActionGoal":
 		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingActionGoal, proto_actionlib_tutorials.AveragingActionGoal]{
 			MsgConverter: ConvertAveragingActionGoal,
 			Serializer:   SerializeAveragingActionGoal,
 		}, nil
-	case "AveragingActionResult":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingActionResult, proto_actionlib_tutorials.AveragingActionResult]{
-			MsgConverter: ConvertAveragingActionResult,
-			Serializer:   SerializeAveragingActionResult,
+	case "FibonacciActionResult":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciActionResult, proto_actionlib_tutorials.FibonacciActionResult]{
+			MsgConverter: ConvertFibonacciActionResult,
+			Serializer:   SerializeFibonacciActionResult,
+		}, nil
+	case "FibonacciGoal":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciGoal, proto_actionlib_tutorials.FibonacciGoal]{
+			MsgConverter: ConvertFibonacciGoal,
+			Serializer:   SerializeFibonacciGoal,
+		}, nil
+	case "AveragingAction":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingAction, proto_actionlib_tutorials.AveragingAction]{
+			MsgConverter: ConvertAveragingAction,
+			Serializer:   SerializeAveragingAction,
+		}, nil
+	case "AveragingActionFeedback":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingActionFeedback, proto_actionlib_tutorials.AveragingActionFeedback]{
+			MsgConverter: ConvertAveragingActionFeedback,
+			Serializer:   SerializeAveragingActionFeedback,
 		}, nil
 	case "AveragingResult":
 		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingResult, proto_actionlib_tutorials.AveragingResult]{
 			MsgConverter: ConvertAveragingResult,
 			Serializer:   SerializeAveragingResult,
+		}, nil
+	case "FibonacciFeedback":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciFeedback, proto_actionlib_tutorials.FibonacciFeedback]{
+			MsgConverter: ConvertFibonacciFeedback,
+			Serializer:   SerializeFibonacciFeedback,
+		}, nil
+	case "FibonacciResult":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciResult, proto_actionlib_tutorials.FibonacciResult]{
+			MsgConverter: ConvertFibonacciResult,
+			Serializer:   SerializeFibonacciResult,
+		}, nil
+	case "AveragingActionResult":
+		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingActionResult, proto_actionlib_tutorials.AveragingActionResult]{
+			MsgConverter: ConvertAveragingActionResult,
+			Serializer:   SerializeAveragingActionResult,
 		}, nil
 	case "AveragingFeedback":
 		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingFeedback, proto_actionlib_tutorials.AveragingFeedback]{
@@ -7533,35 +6232,10 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertFibonacciActionGoal,
 			Serializer:   SerializeFibonacciActionGoal,
 		}, nil
-	case "FibonacciGoal":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciGoal, proto_actionlib_tutorials.FibonacciGoal]{
-			MsgConverter: ConvertFibonacciGoal,
-			Serializer:   SerializeFibonacciGoal,
-		}, nil
-	case "FibonacciFeedback":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciFeedback, proto_actionlib_tutorials.FibonacciFeedback]{
-			MsgConverter: ConvertFibonacciFeedback,
-			Serializer:   SerializeFibonacciFeedback,
-		}, nil
-	case "AveragingActionFeedback":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.AveragingActionFeedback, proto_actionlib_tutorials.AveragingActionFeedback]{
-			MsgConverter: ConvertAveragingActionFeedback,
-			Serializer:   SerializeAveragingActionFeedback,
-		}, nil
 	case "FibonacciAction":
 		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciAction, proto_actionlib_tutorials.FibonacciAction]{
 			MsgConverter: ConvertFibonacciAction,
 			Serializer:   SerializeFibonacciAction,
-		}, nil
-	case "FibonacciActionResult":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciActionResult, proto_actionlib_tutorials.FibonacciActionResult]{
-			MsgConverter: ConvertFibonacciActionResult,
-			Serializer:   SerializeFibonacciActionResult,
-		}, nil
-	case "FibonacciResult":
-		return &channel.BuilderUtil[gengo_actionlib_tutorials.FibonacciResult, proto_actionlib_tutorials.FibonacciResult]{
-			MsgConverter: ConvertFibonacciResult,
-			Serializer:   SerializeFibonacciResult,
 		}, nil
 	case "AudioData":
 		return &channel.BuilderUtil[gengo_audio_common_msgs.AudioData, proto_audio_common_msgs.AudioData]{
@@ -7608,6 +6282,11 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertControllerStatistics,
 			Serializer:   SerializeControllerStatistics,
 		}, nil
+	case "KeyValue":
+		return &channel.BuilderUtil[gengo_diagnostic_msgs.KeyValue, proto_diagnostic_msgs.KeyValue]{
+			MsgConverter: ConvertKeyValue,
+			Serializer:   SerializeKeyValue,
+		}, nil
 	case "DiagnosticArray":
 		return &channel.BuilderUtil[gengo_diagnostic_msgs.DiagnosticArray, proto_diagnostic_msgs.DiagnosticArray]{
 			MsgConverter: ConvertDiagnosticArray,
@@ -7617,21 +6296,6 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 		return &channel.BuilderUtil[gengo_diagnostic_msgs.DiagnosticStatus, proto_diagnostic_msgs.DiagnosticStatus]{
 			MsgConverter: ConvertDiagnosticStatus,
 			Serializer:   SerializeDiagnosticStatus,
-		}, nil
-	case "KeyValue":
-		return &channel.BuilderUtil[gengo_diagnostic_msgs.KeyValue, proto_diagnostic_msgs.KeyValue]{
-			MsgConverter: ConvertKeyValue,
-			Serializer:   SerializeKeyValue,
-		}, nil
-	case "Config":
-		return &channel.BuilderUtil[gengo_dynamic_reconfigure.Config, proto_dynamic_reconfigure.Config]{
-			MsgConverter: ConvertConfig,
-			Serializer:   SerializeConfig,
-		}, nil
-	case "Group":
-		return &channel.BuilderUtil[gengo_dynamic_reconfigure.Group, proto_dynamic_reconfigure.Group]{
-			MsgConverter: ConvertGroup,
-			Serializer:   SerializeGroup,
 		}, nil
 	case "GroupState":
 		return &channel.BuilderUtil[gengo_dynamic_reconfigure.GroupState, proto_dynamic_reconfigure.GroupState]{
@@ -7643,10 +6307,20 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertIntParameter,
 			Serializer:   SerializeIntParameter,
 		}, nil
+	case "SensorLevels":
+		return &channel.BuilderUtil[gengo_dynamic_reconfigure.SensorLevels, proto_dynamic_reconfigure.SensorLevels]{
+			MsgConverter: ConvertSensorLevels,
+			Serializer:   SerializeSensorLevels,
+		}, nil
 	case "BoolParameter":
 		return &channel.BuilderUtil[gengo_dynamic_reconfigure.BoolParameter, proto_dynamic_reconfigure.BoolParameter]{
 			MsgConverter: ConvertBoolParameter,
 			Serializer:   SerializeBoolParameter,
+		}, nil
+	case "Config":
+		return &channel.BuilderUtil[gengo_dynamic_reconfigure.Config, proto_dynamic_reconfigure.Config]{
+			MsgConverter: ConvertConfig,
+			Serializer:   SerializeConfig,
 		}, nil
 	case "ConfigDescription":
 		return &channel.BuilderUtil[gengo_dynamic_reconfigure.ConfigDescription, proto_dynamic_reconfigure.ConfigDescription]{
@@ -7658,340 +6332,250 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertDoubleParameter,
 			Serializer:   SerializeDoubleParameter,
 		}, nil
+	case "Group":
+		return &channel.BuilderUtil[gengo_dynamic_reconfigure.Group, proto_dynamic_reconfigure.Group]{
+			MsgConverter: ConvertGroup,
+			Serializer:   SerializeGroup,
+		}, nil
 	case "ParamDescription":
 		return &channel.BuilderUtil[gengo_dynamic_reconfigure.ParamDescription, proto_dynamic_reconfigure.ParamDescription]{
 			MsgConverter: ConvertParamDescription,
 			Serializer:   SerializeParamDescription,
-		}, nil
-	case "SensorLevels":
-		return &channel.BuilderUtil[gengo_dynamic_reconfigure.SensorLevels, proto_dynamic_reconfigure.SensorLevels]{
-			MsgConverter: ConvertSensorLevels,
-			Serializer:   SerializeSensorLevels,
 		}, nil
 	case "StrParameter":
 		return &channel.BuilderUtil[gengo_dynamic_reconfigure.StrParameter, proto_dynamic_reconfigure.StrParameter]{
 			MsgConverter: ConvertStrParameter,
 			Serializer:   SerializeStrParameter,
 		}, nil
-	case "DetectionInfo":
-		return &channel.BuilderUtil[gengo_find_object_2d.DetectionInfo, proto_find_object_2d.DetectionInfo]{
-			MsgConverter: ConvertDetectionInfo,
-			Serializer:   SerializeDetectionInfo,
-		}, nil
-	case "ObjectsStamped":
-		return &channel.BuilderUtil[gengo_find_object_2d.ObjectsStamped, proto_find_object_2d.ObjectsStamped]{
-			MsgConverter: ConvertObjectsStamped,
-			Serializer:   SerializeObjectsStamped,
-		}, nil
-	case "Accel":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Accel, proto_geometry_msgs.Accel]{
-			MsgConverter: ConvertAccel,
-			Serializer:   SerializeAccel,
-		}, nil
-	case "Point":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Point, proto_geometry_msgs.Point]{
-			MsgConverter: ConvertPoint,
-			Serializer:   SerializePoint,
-		}, nil
-	case "Point32":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Point32, proto_geometry_msgs.Point32]{
-			MsgConverter: ConvertPoint32,
-			Serializer:   SerializePoint32,
-		}, nil
-	case "PointStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.PointStamped, proto_geometry_msgs.PointStamped]{
-			MsgConverter: ConvertPointStamped,
-			Serializer:   SerializePointStamped,
-		}, nil
-	case "Twist":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Twist, proto_geometry_msgs.Twist]{
-			MsgConverter: ConvertTwist,
-			Serializer:   SerializeTwist,
-		}, nil
-	case "TwistWithCovarianceStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.TwistWithCovarianceStamped, proto_geometry_msgs.TwistWithCovarianceStamped]{
-			MsgConverter: ConvertTwistWithCovarianceStamped,
-			Serializer:   SerializeTwistWithCovarianceStamped,
-		}, nil
-	case "Vector3Stamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Vector3Stamped, proto_geometry_msgs.Vector3Stamped]{
-			MsgConverter: ConvertVector3Stamped,
-			Serializer:   SerializeVector3Stamped,
-		}, nil
-	case "PolygonStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.PolygonStamped, proto_geometry_msgs.PolygonStamped]{
-			MsgConverter: ConvertPolygonStamped,
-			Serializer:   SerializePolygonStamped,
-		}, nil
-	case "Vector3":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Vector3, proto_geometry_msgs.Vector3]{
-			MsgConverter: ConvertVector3,
-			Serializer:   SerializeVector3,
-		}, nil
-	case "WrenchStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.WrenchStamped, proto_geometry_msgs.WrenchStamped]{
-			MsgConverter: ConvertWrenchStamped,
-			Serializer:   SerializeWrenchStamped,
-		}, nil
-	case "AccelWithCovarianceStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.AccelWithCovarianceStamped, proto_geometry_msgs.AccelWithCovarianceStamped]{
-			MsgConverter: ConvertAccelWithCovarianceStamped,
-			Serializer:   SerializeAccelWithCovarianceStamped,
-		}, nil
-	case "InertiaStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.InertiaStamped, proto_geometry_msgs.InertiaStamped]{
-			MsgConverter: ConvertInertiaStamped,
-			Serializer:   SerializeInertiaStamped,
+	case "AccelWithCovariance":
+		return &channel.BuilderUtil[gengo_geometry_msgs.AccelWithCovariance, proto_geometry_msgs.AccelWithCovariance]{
+			MsgConverter: ConvertAccelWithCovariance,
+			Serializer:   SerializeAccelWithCovariance,
 		}, nil
 	case "Polygon":
 		return &channel.BuilderUtil[gengo_geometry_msgs.Polygon, proto_geometry_msgs.Polygon]{
 			MsgConverter: ConvertPolygon,
 			Serializer:   SerializePolygon,
 		}, nil
-	case "PoseArray":
-		return &channel.BuilderUtil[gengo_geometry_msgs.PoseArray, proto_geometry_msgs.PoseArray]{
-			MsgConverter: ConvertPoseArray,
-			Serializer:   SerializePoseArray,
+	case "Pose":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Pose, proto_geometry_msgs.Pose]{
+			MsgConverter: ConvertPose,
+			Serializer:   SerializePose,
 		}, nil
 	case "PoseWithCovariance":
 		return &channel.BuilderUtil[gengo_geometry_msgs.PoseWithCovariance, proto_geometry_msgs.PoseWithCovariance]{
 			MsgConverter: ConvertPoseWithCovariance,
 			Serializer:   SerializePoseWithCovariance,
 		}, nil
-	case "PoseWithCovarianceStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.PoseWithCovarianceStamped, proto_geometry_msgs.PoseWithCovarianceStamped]{
-			MsgConverter: ConvertPoseWithCovarianceStamped,
-			Serializer:   SerializePoseWithCovarianceStamped,
-		}, nil
-	case "AccelWithCovariance":
-		return &channel.BuilderUtil[gengo_geometry_msgs.AccelWithCovariance, proto_geometry_msgs.AccelWithCovariance]{
-			MsgConverter: ConvertAccelWithCovariance,
-			Serializer:   SerializeAccelWithCovariance,
-		}, nil
-	case "QuaternionStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.QuaternionStamped, proto_geometry_msgs.QuaternionStamped]{
-			MsgConverter: ConvertQuaternionStamped,
-			Serializer:   SerializeQuaternionStamped,
-		}, nil
 	case "Transform":
 		return &channel.BuilderUtil[gengo_geometry_msgs.Transform, proto_geometry_msgs.Transform]{
 			MsgConverter: ConvertTransform,
 			Serializer:   SerializeTransform,
-		}, nil
-	case "Wrench":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Wrench, proto_geometry_msgs.Wrench]{
-			MsgConverter: ConvertWrench,
-			Serializer:   SerializeWrench,
-		}, nil
-	case "AccelStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.AccelStamped, proto_geometry_msgs.AccelStamped]{
-			MsgConverter: ConvertAccelStamped,
-			Serializer:   SerializeAccelStamped,
-		}, nil
-	case "Inertia":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Inertia, proto_geometry_msgs.Inertia]{
-			MsgConverter: ConvertInertia,
-			Serializer:   SerializeInertia,
-		}, nil
-	case "PoseStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.PoseStamped, proto_geometry_msgs.PoseStamped]{
-			MsgConverter: ConvertPoseStamped,
-			Serializer:   SerializePoseStamped,
-		}, nil
-	case "Quaternion":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Quaternion, proto_geometry_msgs.Quaternion]{
-			MsgConverter: ConvertQuaternion,
-			Serializer:   SerializeQuaternion,
-		}, nil
-	case "TransformStamped":
-		return &channel.BuilderUtil[gengo_geometry_msgs.TransformStamped, proto_geometry_msgs.TransformStamped]{
-			MsgConverter: ConvertTransformStamped,
-			Serializer:   SerializeTransformStamped,
-		}, nil
-	case "TwistWithCovariance":
-		return &channel.BuilderUtil[gengo_geometry_msgs.TwistWithCovariance, proto_geometry_msgs.TwistWithCovariance]{
-			MsgConverter: ConvertTwistWithCovariance,
-			Serializer:   SerializeTwistWithCovariance,
-		}, nil
-	case "Pose":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Pose, proto_geometry_msgs.Pose]{
-			MsgConverter: ConvertPose,
-			Serializer:   SerializePose,
-		}, nil
-	case "Pose2D":
-		return &channel.BuilderUtil[gengo_geometry_msgs.Pose2D, proto_geometry_msgs.Pose2D]{
-			MsgConverter: ConvertPose2D,
-			Serializer:   SerializePose2D,
 		}, nil
 	case "TwistStamped":
 		return &channel.BuilderUtil[gengo_geometry_msgs.TwistStamped, proto_geometry_msgs.TwistStamped]{
 			MsgConverter: ConvertTwistStamped,
 			Serializer:   SerializeTwistStamped,
 		}, nil
-	case "OptimalControlResult":
-		return &channel.BuilderUtil[gengo_mpc_local_planner_msgs.OptimalControlResult, proto_mpc_local_planner_msgs.OptimalControlResult]{
-			MsgConverter: ConvertOptimalControlResult,
-			Serializer:   SerializeOptimalControlResult,
+	case "Twist":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Twist, proto_geometry_msgs.Twist]{
+			MsgConverter: ConvertTwist,
+			Serializer:   SerializeTwist,
 		}, nil
-	case "StateFeedback":
-		return &channel.BuilderUtil[gengo_mpc_local_planner_msgs.StateFeedback, proto_mpc_local_planner_msgs.StateFeedback]{
-			MsgConverter: ConvertStateFeedback,
-			Serializer:   SerializeStateFeedback,
+	case "TwistWithCovariance":
+		return &channel.BuilderUtil[gengo_geometry_msgs.TwistWithCovariance, proto_geometry_msgs.TwistWithCovariance]{
+			MsgConverter: ConvertTwistWithCovariance,
+			Serializer:   SerializeTwistWithCovariance,
 		}, nil
-	case "Point2DArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.Point2DArrayStamped, proto_opencv_apps.Point2DArrayStamped]{
-			MsgConverter: ConvertPoint2DArrayStamped,
-			Serializer:   SerializePoint2DArrayStamped,
+	case "Point":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Point, proto_geometry_msgs.Point]{
+			MsgConverter: ConvertPoint,
+			Serializer:   SerializePoint,
 		}, nil
-	case "RotatedRectArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.RotatedRectArrayStamped, proto_opencv_apps.RotatedRectArrayStamped]{
-			MsgConverter: ConvertRotatedRectArrayStamped,
-			Serializer:   SerializeRotatedRectArrayStamped,
+	case "Pose2D":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Pose2D, proto_geometry_msgs.Pose2D]{
+			MsgConverter: ConvertPose2D,
+			Serializer:   SerializePose2D,
 		}, nil
-	case "Size":
-		return &channel.BuilderUtil[gengo_opencv_apps.Size, proto_opencv_apps.Size]{
-			MsgConverter: ConvertSize,
-			Serializer:   SerializeSize,
+	case "PoseWithCovarianceStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.PoseWithCovarianceStamped, proto_geometry_msgs.PoseWithCovarianceStamped]{
+			MsgConverter: ConvertPoseWithCovarianceStamped,
+			Serializer:   SerializePoseWithCovarianceStamped,
 		}, nil
-	case "CircleArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.CircleArray, proto_opencv_apps.CircleArray]{
-			MsgConverter: ConvertCircleArray,
-			Serializer:   SerializeCircleArray,
+	case "TransformStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.TransformStamped, proto_geometry_msgs.TransformStamped]{
+			MsgConverter: ConvertTransformStamped,
+			Serializer:   SerializeTransformStamped,
 		}, nil
-	case "Face":
-		return &channel.BuilderUtil[gengo_opencv_apps.Face, proto_opencv_apps.Face]{
-			MsgConverter: ConvertFace,
-			Serializer:   SerializeFace,
+	case "Vector3Stamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Vector3Stamped, proto_geometry_msgs.Vector3Stamped]{
+			MsgConverter: ConvertVector3Stamped,
+			Serializer:   SerializeVector3Stamped,
 		}, nil
-	case "Flow":
-		return &channel.BuilderUtil[gengo_opencv_apps.Flow, proto_opencv_apps.Flow]{
-			MsgConverter: ConvertFlow,
-			Serializer:   SerializeFlow,
+	case "Wrench":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Wrench, proto_geometry_msgs.Wrench]{
+			MsgConverter: ConvertWrench,
+			Serializer:   SerializeWrench,
 		}, nil
-	case "FlowArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.FlowArrayStamped, proto_opencv_apps.FlowArrayStamped]{
-			MsgConverter: ConvertFlowArrayStamped,
-			Serializer:   SerializeFlowArrayStamped,
+	case "AccelWithCovarianceStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.AccelWithCovarianceStamped, proto_geometry_msgs.AccelWithCovarianceStamped]{
+			MsgConverter: ConvertAccelWithCovarianceStamped,
+			Serializer:   SerializeAccelWithCovarianceStamped,
 		}, nil
-	case "RectArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.RectArrayStamped, proto_opencv_apps.RectArrayStamped]{
-			MsgConverter: ConvertRectArrayStamped,
-			Serializer:   SerializeRectArrayStamped,
+	case "Point32":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Point32, proto_geometry_msgs.Point32]{
+			MsgConverter: ConvertPoint32,
+			Serializer:   SerializePoint32,
 		}, nil
-	case "RotatedRect":
-		return &channel.BuilderUtil[gengo_opencv_apps.RotatedRect, proto_opencv_apps.RotatedRect]{
-			MsgConverter: ConvertRotatedRect,
-			Serializer:   SerializeRotatedRect,
+	case "PolygonStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.PolygonStamped, proto_geometry_msgs.PolygonStamped]{
+			MsgConverter: ConvertPolygonStamped,
+			Serializer:   SerializePolygonStamped,
 		}, nil
-	case "FaceArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.FaceArray, proto_opencv_apps.FaceArray]{
-			MsgConverter: ConvertFaceArray,
-			Serializer:   SerializeFaceArray,
+	case "QuaternionStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.QuaternionStamped, proto_geometry_msgs.QuaternionStamped]{
+			MsgConverter: ConvertQuaternionStamped,
+			Serializer:   SerializeQuaternionStamped,
 		}, nil
-	case "Moment":
-		return &channel.BuilderUtil[gengo_opencv_apps.Moment, proto_opencv_apps.Moment]{
-			MsgConverter: ConvertMoment,
-			Serializer:   SerializeMoment,
+	case "Quaternion":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Quaternion, proto_geometry_msgs.Quaternion]{
+			MsgConverter: ConvertQuaternion,
+			Serializer:   SerializeQuaternion,
 		}, nil
-	case "MomentArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.MomentArrayStamped, proto_opencv_apps.MomentArrayStamped]{
-			MsgConverter: ConvertMomentArrayStamped,
-			Serializer:   SerializeMomentArrayStamped,
+	case "AccelStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.AccelStamped, proto_geometry_msgs.AccelStamped]{
+			MsgConverter: ConvertAccelStamped,
+			Serializer:   SerializeAccelStamped,
 		}, nil
-	case "ContourArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.ContourArray, proto_opencv_apps.ContourArray]{
-			MsgConverter: ConvertContourArray,
-			Serializer:   SerializeContourArray,
+	case "PointStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.PointStamped, proto_geometry_msgs.PointStamped]{
+			MsgConverter: ConvertPointStamped,
+			Serializer:   SerializePointStamped,
 		}, nil
-	case "Rect":
-		return &channel.BuilderUtil[gengo_opencv_apps.Rect, proto_opencv_apps.Rect]{
-			MsgConverter: ConvertRect,
-			Serializer:   SerializeRect,
+	case "PoseArray":
+		return &channel.BuilderUtil[gengo_geometry_msgs.PoseArray, proto_geometry_msgs.PoseArray]{
+			MsgConverter: ConvertPoseArray,
+			Serializer:   SerializePoseArray,
 		}, nil
-	case "RotatedRectStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.RotatedRectStamped, proto_opencv_apps.RotatedRectStamped]{
-			MsgConverter: ConvertRotatedRectStamped,
-			Serializer:   SerializeRotatedRectStamped,
+	case "PoseStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.PoseStamped, proto_geometry_msgs.PoseStamped]{
+			MsgConverter: ConvertPoseStamped,
+			Serializer:   SerializePoseStamped,
 		}, nil
-	case "FaceArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.FaceArrayStamped, proto_opencv_apps.FaceArrayStamped]{
-			MsgConverter: ConvertFaceArrayStamped,
-			Serializer:   SerializeFaceArrayStamped,
+	case "Inertia":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Inertia, proto_geometry_msgs.Inertia]{
+			MsgConverter: ConvertInertia,
+			Serializer:   SerializeInertia,
 		}, nil
-	case "Line":
-		return &channel.BuilderUtil[gengo_opencv_apps.Line, proto_opencv_apps.Line]{
-			MsgConverter: ConvertLine,
-			Serializer:   SerializeLine,
+	case "WrenchStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.WrenchStamped, proto_geometry_msgs.WrenchStamped]{
+			MsgConverter: ConvertWrenchStamped,
+			Serializer:   SerializeWrenchStamped,
 		}, nil
-	case "Point2DStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.Point2DStamped, proto_opencv_apps.Point2DStamped]{
-			MsgConverter: ConvertPoint2DStamped,
-			Serializer:   SerializePoint2DStamped,
+	case "Accel":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Accel, proto_geometry_msgs.Accel]{
+			MsgConverter: ConvertAccel,
+			Serializer:   SerializeAccel,
 		}, nil
-	case "CircleArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.CircleArrayStamped, proto_opencv_apps.CircleArrayStamped]{
-			MsgConverter: ConvertCircleArrayStamped,
-			Serializer:   SerializeCircleArrayStamped,
+	case "InertiaStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.InertiaStamped, proto_geometry_msgs.InertiaStamped]{
+			MsgConverter: ConvertInertiaStamped,
+			Serializer:   SerializeInertiaStamped,
 		}, nil
-	case "LineArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.LineArrayStamped, proto_opencv_apps.LineArrayStamped]{
-			MsgConverter: ConvertLineArrayStamped,
-			Serializer:   SerializeLineArrayStamped,
+	case "TwistWithCovarianceStamped":
+		return &channel.BuilderUtil[gengo_geometry_msgs.TwistWithCovarianceStamped, proto_geometry_msgs.TwistWithCovarianceStamped]{
+			MsgConverter: ConvertTwistWithCovarianceStamped,
+			Serializer:   SerializeTwistWithCovarianceStamped,
 		}, nil
-	case "Point2DArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.Point2DArray, proto_opencv_apps.Point2DArray]{
-			MsgConverter: ConvertPoint2DArray,
-			Serializer:   SerializePoint2DArray,
+	case "Vector3":
+		return &channel.BuilderUtil[gengo_geometry_msgs.Vector3, proto_geometry_msgs.Vector3]{
+			MsgConverter: ConvertVector3,
+			Serializer:   SerializeVector3,
 		}, nil
-	case "RectArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.RectArray, proto_opencv_apps.RectArray]{
-			MsgConverter: ConvertRectArray,
-			Serializer:   SerializeRectArray,
+	case "GetMapActionFeedback":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapActionFeedback, proto_nav_msgs.GetMapActionFeedback]{
+			MsgConverter: ConvertGetMapActionFeedback,
+			Serializer:   SerializeGetMapActionFeedback,
 		}, nil
-	case "Circle":
-		return &channel.BuilderUtil[gengo_opencv_apps.Circle, proto_opencv_apps.Circle]{
-			MsgConverter: ConvertCircle,
-			Serializer:   SerializeCircle,
+	case "GetMapActionGoal":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapActionGoal, proto_nav_msgs.GetMapActionGoal]{
+			MsgConverter: ConvertGetMapActionGoal,
+			Serializer:   SerializeGetMapActionGoal,
 		}, nil
-	case "Contour":
-		return &channel.BuilderUtil[gengo_opencv_apps.Contour, proto_opencv_apps.Contour]{
-			MsgConverter: ConvertContour,
-			Serializer:   SerializeContour,
+	case "MapMetaData":
+		return &channel.BuilderUtil[gengo_nav_msgs.MapMetaData, proto_nav_msgs.MapMetaData]{
+			MsgConverter: ConvertMapMetaData,
+			Serializer:   SerializeMapMetaData,
 		}, nil
-	case "ContourArrayStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.ContourArrayStamped, proto_opencv_apps.ContourArrayStamped]{
-			MsgConverter: ConvertContourArrayStamped,
-			Serializer:   SerializeContourArrayStamped,
+	case "Odometry":
+		return &channel.BuilderUtil[gengo_nav_msgs.Odometry, proto_nav_msgs.Odometry]{
+			MsgConverter: ConvertOdometry,
+			Serializer:   SerializeOdometry,
 		}, nil
-	case "FlowArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.FlowArray, proto_opencv_apps.FlowArray]{
-			MsgConverter: ConvertFlowArray,
-			Serializer:   SerializeFlowArray,
+	case "GetMapAction":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapAction, proto_nav_msgs.GetMapAction]{
+			MsgConverter: ConvertGetMapAction,
+			Serializer:   SerializeGetMapAction,
 		}, nil
-	case "FlowStamped":
-		return &channel.BuilderUtil[gengo_opencv_apps.FlowStamped, proto_opencv_apps.FlowStamped]{
-			MsgConverter: ConvertFlowStamped,
-			Serializer:   SerializeFlowStamped,
+	case "GetMapActionResult":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapActionResult, proto_nav_msgs.GetMapActionResult]{
+			MsgConverter: ConvertGetMapActionResult,
+			Serializer:   SerializeGetMapActionResult,
 		}, nil
-	case "MomentArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.MomentArray, proto_opencv_apps.MomentArray]{
-			MsgConverter: ConvertMomentArray,
-			Serializer:   SerializeMomentArray,
+	case "GetMapFeedback":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapFeedback, proto_nav_msgs.GetMapFeedback]{
+			MsgConverter: ConvertGetMapFeedback,
+			Serializer:   SerializeGetMapFeedback,
 		}, nil
-	case "LineArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.LineArray, proto_opencv_apps.LineArray]{
-			MsgConverter: ConvertLineArray,
-			Serializer:   SerializeLineArray,
+	case "GetMapGoal":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapGoal, proto_nav_msgs.GetMapGoal]{
+			MsgConverter: ConvertGetMapGoal,
+			Serializer:   SerializeGetMapGoal,
 		}, nil
-	case "Point2D":
-		return &channel.BuilderUtil[gengo_opencv_apps.Point2D, proto_opencv_apps.Point2D]{
-			MsgConverter: ConvertPoint2D,
-			Serializer:   SerializePoint2D,
+	case "GetMapResult":
+		return &channel.BuilderUtil[gengo_nav_msgs.GetMapResult, proto_nav_msgs.GetMapResult]{
+			MsgConverter: ConvertGetMapResult,
+			Serializer:   SerializeGetMapResult,
 		}, nil
-	case "RotatedRectArray":
-		return &channel.BuilderUtil[gengo_opencv_apps.RotatedRectArray, proto_opencv_apps.RotatedRectArray]{
-			MsgConverter: ConvertRotatedRectArray,
-			Serializer:   SerializeRotatedRectArray,
+	case "GridCells":
+		return &channel.BuilderUtil[gengo_nav_msgs.GridCells, proto_nav_msgs.GridCells]{
+			MsgConverter: ConvertGridCells,
+			Serializer:   SerializeGridCells,
+		}, nil
+	case "OccupancyGrid":
+		return &channel.BuilderUtil[gengo_nav_msgs.OccupancyGrid, proto_nav_msgs.OccupancyGrid]{
+			MsgConverter: ConvertOccupancyGrid,
+			Serializer:   SerializeOccupancyGrid,
+		}, nil
+	case "Path":
+		return &channel.BuilderUtil[gengo_nav_msgs.Path, proto_nav_msgs.Path]{
+			MsgConverter: ConvertPath,
+			Serializer:   SerializePath,
+		}, nil
+	case "StatisticsNames":
+		return &channel.BuilderUtil[gengo_plotjuggler_msgs.StatisticsNames, proto_plotjuggler_msgs.StatisticsNames]{
+			MsgConverter: ConvertStatisticsNames,
+			Serializer:   SerializeStatisticsNames,
+		}, nil
+	case "StatisticsValues":
+		return &channel.BuilderUtil[gengo_plotjuggler_msgs.StatisticsValues, proto_plotjuggler_msgs.StatisticsValues]{
+			MsgConverter: ConvertStatisticsValues,
+			Serializer:   SerializeStatisticsValues,
+		}, nil
+	case "DataPoint":
+		return &channel.BuilderUtil[gengo_plotjuggler_msgs.DataPoint, proto_plotjuggler_msgs.DataPoint]{
+			MsgConverter: ConvertDataPoint,
+			Serializer:   SerializeDataPoint,
+		}, nil
+	case "DataPoints":
+		return &channel.BuilderUtil[gengo_plotjuggler_msgs.DataPoints, proto_plotjuggler_msgs.DataPoints]{
+			MsgConverter: ConvertDataPoints,
+			Serializer:   SerializeDataPoints,
+		}, nil
+	case "Dictionary":
+		return &channel.BuilderUtil[gengo_plotjuggler_msgs.Dictionary, proto_plotjuggler_msgs.Dictionary]{
+			MsgConverter: ConvertDictionary,
+			Serializer:   SerializeDictionary,
 		}, nil
 	case "Logger":
 		return &channel.BuilderUtil[gengo_roscpp.Logger, proto_roscpp.Logger]{
@@ -8023,140 +6607,140 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertHeaderString,
 			Serializer:   SerializeHeaderString,
 		}, nil
-	case "RelativeHumidity":
-		return &channel.BuilderUtil[gengo_sensor_msgs.RelativeHumidity, proto_sensor_msgs.RelativeHumidity]{
-			MsgConverter: ConvertRelativeHumidity,
-			Serializer:   SerializeRelativeHumidity,
+	case "Temperature":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Temperature, proto_sensor_msgs.Temperature]{
+			MsgConverter: ConvertTemperature,
+			Serializer:   SerializeTemperature,
 		}, nil
 	case "BatteryState":
 		return &channel.BuilderUtil[gengo_sensor_msgs.BatteryState, proto_sensor_msgs.BatteryState]{
 			MsgConverter: ConvertBatteryState,
 			Serializer:   SerializeBatteryState,
 		}, nil
-	case "CompressedImage":
-		return &channel.BuilderUtil[gengo_sensor_msgs.CompressedImage, proto_sensor_msgs.CompressedImage]{
-			MsgConverter: ConvertCompressedImage,
-			Serializer:   SerializeCompressedImage,
-		}, nil
-	case "Illuminance":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Illuminance, proto_sensor_msgs.Illuminance]{
-			MsgConverter: ConvertIlluminance,
-			Serializer:   SerializeIlluminance,
+	case "FluidPressure":
+		return &channel.BuilderUtil[gengo_sensor_msgs.FluidPressure, proto_sensor_msgs.FluidPressure]{
+			MsgConverter: ConvertFluidPressure,
+			Serializer:   SerializeFluidPressure,
 		}, nil
 	case "MagneticField":
 		return &channel.BuilderUtil[gengo_sensor_msgs.MagneticField, proto_sensor_msgs.MagneticField]{
 			MsgConverter: ConvertMagneticField,
 			Serializer:   SerializeMagneticField,
 		}, nil
+	case "PointField":
+		return &channel.BuilderUtil[gengo_sensor_msgs.PointField, proto_sensor_msgs.PointField]{
+			MsgConverter: ConvertPointField,
+			Serializer:   SerializePointField,
+		}, nil
 	case "MultiEchoLaserScan":
 		return &channel.BuilderUtil[gengo_sensor_msgs.MultiEchoLaserScan, proto_sensor_msgs.MultiEchoLaserScan]{
 			MsgConverter: ConvertMultiEchoLaserScan,
 			Serializer:   SerializeMultiEchoLaserScan,
-		}, nil
-	case "Range":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Range, proto_sensor_msgs.Range]{
-			MsgConverter: ConvertRange,
-			Serializer:   SerializeRange,
 		}, nil
 	case "PointCloud":
 		return &channel.BuilderUtil[gengo_sensor_msgs.PointCloud, proto_sensor_msgs.PointCloud]{
 			MsgConverter: ConvertPointCloud,
 			Serializer:   SerializePointCloud,
 		}, nil
-	case "MultiDOFJointState":
-		return &channel.BuilderUtil[gengo_sensor_msgs.MultiDOFJointState, proto_sensor_msgs.MultiDOFJointState]{
-			MsgConverter: ConvertMultiDOFJointState,
-			Serializer:   SerializeMultiDOFJointState,
-		}, nil
-	case "ChannelFloat32":
-		return &channel.BuilderUtil[gengo_sensor_msgs.ChannelFloat32, proto_sensor_msgs.ChannelFloat32]{
-			MsgConverter: ConvertChannelFloat32,
-			Serializer:   SerializeChannelFloat32,
-		}, nil
-	case "Image":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Image, proto_sensor_msgs.Image]{
-			MsgConverter: ConvertImage,
-			Serializer:   SerializeImage,
-		}, nil
-	case "Imu":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Imu, proto_sensor_msgs.Imu]{
-			MsgConverter: ConvertImu,
-			Serializer:   SerializeImu,
-		}, nil
-	case "JoyFeedbackArray":
-		return &channel.BuilderUtil[gengo_sensor_msgs.JoyFeedbackArray, proto_sensor_msgs.JoyFeedbackArray]{
-			MsgConverter: ConvertJoyFeedbackArray,
-			Serializer:   SerializeJoyFeedbackArray,
-		}, nil
-	case "PointField":
-		return &channel.BuilderUtil[gengo_sensor_msgs.PointField, proto_sensor_msgs.PointField]{
-			MsgConverter: ConvertPointField,
-			Serializer:   SerializePointField,
-		}, nil
 	case "RegionOfInterest":
 		return &channel.BuilderUtil[gengo_sensor_msgs.RegionOfInterest, proto_sensor_msgs.RegionOfInterest]{
 			MsgConverter: ConvertRegionOfInterest,
 			Serializer:   SerializeRegionOfInterest,
-		}, nil
-	case "PointCloud2":
-		return &channel.BuilderUtil[gengo_sensor_msgs.PointCloud2, proto_sensor_msgs.PointCloud2]{
-			MsgConverter: ConvertPointCloud2,
-			Serializer:   SerializePointCloud2,
-		}, nil
-	case "CameraInfo":
-		return &channel.BuilderUtil[gengo_sensor_msgs.CameraInfo, proto_sensor_msgs.CameraInfo]{
-			MsgConverter: ConvertCameraInfo,
-			Serializer:   SerializeCameraInfo,
-		}, nil
-	case "JoyFeedback":
-		return &channel.BuilderUtil[gengo_sensor_msgs.JoyFeedback, proto_sensor_msgs.JoyFeedback]{
-			MsgConverter: ConvertJoyFeedback,
-			Serializer:   SerializeJoyFeedback,
-		}, nil
-	case "LaserScan":
-		return &channel.BuilderUtil[gengo_sensor_msgs.LaserScan, proto_sensor_msgs.LaserScan]{
-			MsgConverter: ConvertLaserScan,
-			Serializer:   SerializeLaserScan,
-		}, nil
-	case "Joy":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Joy, proto_sensor_msgs.Joy]{
-			MsgConverter: ConvertJoy,
-			Serializer:   SerializeJoy,
-		}, nil
-	case "LaserEcho":
-		return &channel.BuilderUtil[gengo_sensor_msgs.LaserEcho, proto_sensor_msgs.LaserEcho]{
-			MsgConverter: ConvertLaserEcho,
-			Serializer:   SerializeLaserEcho,
-		}, nil
-	case "NavSatFix":
-		return &channel.BuilderUtil[gengo_sensor_msgs.NavSatFix, proto_sensor_msgs.NavSatFix]{
-			MsgConverter: ConvertNavSatFix,
-			Serializer:   SerializeNavSatFix,
-		}, nil
-	case "FluidPressure":
-		return &channel.BuilderUtil[gengo_sensor_msgs.FluidPressure, proto_sensor_msgs.FluidPressure]{
-			MsgConverter: ConvertFluidPressure,
-			Serializer:   SerializeFluidPressure,
 		}, nil
 	case "JointState":
 		return &channel.BuilderUtil[gengo_sensor_msgs.JointState, proto_sensor_msgs.JointState]{
 			MsgConverter: ConvertJointState,
 			Serializer:   SerializeJointState,
 		}, nil
-	case "NavSatStatus":
-		return &channel.BuilderUtil[gengo_sensor_msgs.NavSatStatus, proto_sensor_msgs.NavSatStatus]{
-			MsgConverter: ConvertNavSatStatus,
-			Serializer:   SerializeNavSatStatus,
+	case "JoyFeedback":
+		return &channel.BuilderUtil[gengo_sensor_msgs.JoyFeedback, proto_sensor_msgs.JoyFeedback]{
+			MsgConverter: ConvertJoyFeedback,
+			Serializer:   SerializeJoyFeedback,
 		}, nil
-	case "Temperature":
-		return &channel.BuilderUtil[gengo_sensor_msgs.Temperature, proto_sensor_msgs.Temperature]{
-			MsgConverter: ConvertTemperature,
-			Serializer:   SerializeTemperature,
+	case "LaserEcho":
+		return &channel.BuilderUtil[gengo_sensor_msgs.LaserEcho, proto_sensor_msgs.LaserEcho]{
+			MsgConverter: ConvertLaserEcho,
+			Serializer:   SerializeLaserEcho,
+		}, nil
+	case "ChannelFloat32":
+		return &channel.BuilderUtil[gengo_sensor_msgs.ChannelFloat32, proto_sensor_msgs.ChannelFloat32]{
+			MsgConverter: ConvertChannelFloat32,
+			Serializer:   SerializeChannelFloat32,
+		}, nil
+	case "CompressedImage":
+		return &channel.BuilderUtil[gengo_sensor_msgs.CompressedImage, proto_sensor_msgs.CompressedImage]{
+			MsgConverter: ConvertCompressedImage,
+			Serializer:   SerializeCompressedImage,
+		}, nil
+	case "Image":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Image, proto_sensor_msgs.Image]{
+			MsgConverter: ConvertImage,
+			Serializer:   SerializeImage,
+		}, nil
+	case "JoyFeedbackArray":
+		return &channel.BuilderUtil[gengo_sensor_msgs.JoyFeedbackArray, proto_sensor_msgs.JoyFeedbackArray]{
+			MsgConverter: ConvertJoyFeedbackArray,
+			Serializer:   SerializeJoyFeedbackArray,
+		}, nil
+	case "NavSatFix":
+		return &channel.BuilderUtil[gengo_sensor_msgs.NavSatFix, proto_sensor_msgs.NavSatFix]{
+			MsgConverter: ConvertNavSatFix,
+			Serializer:   SerializeNavSatFix,
+		}, nil
+	case "Range":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Range, proto_sensor_msgs.Range]{
+			MsgConverter: ConvertRange,
+			Serializer:   SerializeRange,
+		}, nil
+	case "RelativeHumidity":
+		return &channel.BuilderUtil[gengo_sensor_msgs.RelativeHumidity, proto_sensor_msgs.RelativeHumidity]{
+			MsgConverter: ConvertRelativeHumidity,
+			Serializer:   SerializeRelativeHumidity,
+		}, nil
+	case "PointCloud2":
+		return &channel.BuilderUtil[gengo_sensor_msgs.PointCloud2, proto_sensor_msgs.PointCloud2]{
+			MsgConverter: ConvertPointCloud2,
+			Serializer:   SerializePointCloud2,
 		}, nil
 	case "TimeReference":
 		return &channel.BuilderUtil[gengo_sensor_msgs.TimeReference, proto_sensor_msgs.TimeReference]{
 			MsgConverter: ConvertTimeReference,
 			Serializer:   SerializeTimeReference,
+		}, nil
+	case "Imu":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Imu, proto_sensor_msgs.Imu]{
+			MsgConverter: ConvertImu,
+			Serializer:   SerializeImu,
+		}, nil
+	case "Joy":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Joy, proto_sensor_msgs.Joy]{
+			MsgConverter: ConvertJoy,
+			Serializer:   SerializeJoy,
+		}, nil
+	case "NavSatStatus":
+		return &channel.BuilderUtil[gengo_sensor_msgs.NavSatStatus, proto_sensor_msgs.NavSatStatus]{
+			MsgConverter: ConvertNavSatStatus,
+			Serializer:   SerializeNavSatStatus,
+		}, nil
+	case "LaserScan":
+		return &channel.BuilderUtil[gengo_sensor_msgs.LaserScan, proto_sensor_msgs.LaserScan]{
+			MsgConverter: ConvertLaserScan,
+			Serializer:   SerializeLaserScan,
+		}, nil
+	case "MultiDOFJointState":
+		return &channel.BuilderUtil[gengo_sensor_msgs.MultiDOFJointState, proto_sensor_msgs.MultiDOFJointState]{
+			MsgConverter: ConvertMultiDOFJointState,
+			Serializer:   SerializeMultiDOFJointState,
+		}, nil
+	case "CameraInfo":
+		return &channel.BuilderUtil[gengo_sensor_msgs.CameraInfo, proto_sensor_msgs.CameraInfo]{
+			MsgConverter: ConvertCameraInfo,
+			Serializer:   SerializeCameraInfo,
+		}, nil
+	case "Illuminance":
+		return &channel.BuilderUtil[gengo_sensor_msgs.Illuminance, proto_sensor_msgs.Illuminance]{
+			MsgConverter: ConvertIlluminance,
+			Serializer:   SerializeIlluminance,
 		}, nil
 	case "SmachContainerInitialStatusCmd":
 		return &channel.BuilderUtil[gengo_smach_msgs.SmachContainerInitialStatusCmd, proto_smach_msgs.SmachContainerInitialStatusCmd]{
@@ -8172,21 +6756,6 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 		return &channel.BuilderUtil[gengo_smach_msgs.SmachContainerStructure, proto_smach_msgs.SmachContainerStructure]{
 			MsgConverter: ConvertSmachContainerStructure,
 			Serializer:   SerializeSmachContainerStructure,
-		}, nil
-	case "SoundRequestResult":
-		return &channel.BuilderUtil[gengo_sound_play.SoundRequestResult, proto_sound_play.SoundRequestResult]{
-			MsgConverter: ConvertSoundRequestResult,
-			Serializer:   SerializeSoundRequestResult,
-		}, nil
-	case "SoundRequest":
-		return &channel.BuilderUtil[gengo_sound_play.SoundRequest, proto_sound_play.SoundRequest]{
-			MsgConverter: ConvertSoundRequest,
-			Serializer:   SerializeSoundRequest,
-		}, nil
-	case "SoundRequestAction":
-		return &channel.BuilderUtil[gengo_sound_play.SoundRequestAction, proto_sound_play.SoundRequestAction]{
-			MsgConverter: ConvertSoundRequestAction,
-			Serializer:   SerializeSoundRequestAction,
 		}, nil
 	case "SoundRequestActionFeedback":
 		return &channel.BuilderUtil[gengo_sound_play.SoundRequestActionFeedback, proto_sound_play.SoundRequestActionFeedback]{
@@ -8213,135 +6782,20 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertSoundRequestGoal,
 			Serializer:   SerializeSoundRequestGoal,
 		}, nil
-	case "Duration":
-		return &channel.BuilderUtil[gengo_std_msgs.Duration, proto_std_msgs.Duration]{
-			MsgConverter: ConvertDuration,
-			Serializer:   SerializeDuration,
+	case "SoundRequestResult":
+		return &channel.BuilderUtil[gengo_sound_play.SoundRequestResult, proto_sound_play.SoundRequestResult]{
+			MsgConverter: ConvertSoundRequestResult,
+			Serializer:   SerializeSoundRequestResult,
 		}, nil
-	case "Int64":
-		return &channel.BuilderUtil[gengo_std_msgs.Int64, proto_std_msgs.Int64]{
-			MsgConverter: ConvertInt64,
-			Serializer:   SerializeInt64,
+	case "SoundRequest":
+		return &channel.BuilderUtil[gengo_sound_play.SoundRequest, proto_sound_play.SoundRequest]{
+			MsgConverter: ConvertSoundRequest,
+			Serializer:   SerializeSoundRequest,
 		}, nil
-	case "UInt64":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt64, proto_std_msgs.UInt64]{
-			MsgConverter: ConvertUInt64,
-			Serializer:   SerializeUInt64,
-		}, nil
-	case "Float64MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Float64MultiArray, proto_std_msgs.Float64MultiArray]{
-			MsgConverter: ConvertFloat64MultiArray,
-			Serializer:   SerializeFloat64MultiArray,
-		}, nil
-	case "Int16":
-		return &channel.BuilderUtil[gengo_std_msgs.Int16, proto_std_msgs.Int16]{
-			MsgConverter: ConvertInt16,
-			Serializer:   SerializeInt16,
-		}, nil
-	case "Header":
-		return &channel.BuilderUtil[gengo_std_msgs.Header, proto_std_msgs.Header]{
-			MsgConverter: ConvertHeader,
-			Serializer:   SerializeHeader,
-		}, nil
-	case "UInt32":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt32, proto_std_msgs.UInt32]{
-			MsgConverter: ConvertUInt32,
-			Serializer:   SerializeUInt32,
-		}, nil
-	case "ByteMultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.ByteMultiArray, proto_std_msgs.ByteMultiArray]{
-			MsgConverter: ConvertByteMultiArray,
-			Serializer:   SerializeByteMultiArray,
-		}, nil
-	case "Int16MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Int16MultiArray, proto_std_msgs.Int16MultiArray]{
-			MsgConverter: ConvertInt16MultiArray,
-			Serializer:   SerializeInt16MultiArray,
-		}, nil
-	case "Time":
-		return &channel.BuilderUtil[gengo_std_msgs.Time, proto_std_msgs.Time]{
-			MsgConverter: ConvertTime,
-			Serializer:   SerializeTime,
-		}, nil
-	case "UInt16":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt16, proto_std_msgs.UInt16]{
-			MsgConverter: ConvertUInt16,
-			Serializer:   SerializeUInt16,
-		}, nil
-	case "UInt16MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt16MultiArray, proto_std_msgs.UInt16MultiArray]{
-			MsgConverter: ConvertUInt16MultiArray,
-			Serializer:   SerializeUInt16MultiArray,
-		}, nil
-	case "UInt8MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt8MultiArray, proto_std_msgs.UInt8MultiArray]{
-			MsgConverter: ConvertUInt8MultiArray,
-			Serializer:   SerializeUInt8MultiArray,
-		}, nil
-	case "ColorRGBA":
-		return &channel.BuilderUtil[gengo_std_msgs.ColorRGBA, proto_std_msgs.ColorRGBA]{
-			MsgConverter: ConvertColorRGBA,
-			Serializer:   SerializeColorRGBA,
-		}, nil
-	case "Float64":
-		return &channel.BuilderUtil[gengo_std_msgs.Float64, proto_std_msgs.Float64]{
-			MsgConverter: ConvertFloat64,
-			Serializer:   SerializeFloat64,
-		}, nil
-	case "Int32":
-		return &channel.BuilderUtil[gengo_std_msgs.Int32, proto_std_msgs.Int32]{
-			MsgConverter: ConvertInt32,
-			Serializer:   SerializeInt32,
-		}, nil
-	case "Int32MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Int32MultiArray, proto_std_msgs.Int32MultiArray]{
-			MsgConverter: ConvertInt32MultiArray,
-			Serializer:   SerializeInt32MultiArray,
-		}, nil
-	case "Int64MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Int64MultiArray, proto_std_msgs.Int64MultiArray]{
-			MsgConverter: ConvertInt64MultiArray,
-			Serializer:   SerializeInt64MultiArray,
-		}, nil
-	case "String":
-		return &channel.BuilderUtil[gengo_std_msgs.String, proto_std_msgs.String]{
-			MsgConverter: ConvertString,
-			Serializer:   SerializeString,
-		}, nil
-	case "Bool":
-		return &channel.BuilderUtil[gengo_std_msgs.Bool, proto_std_msgs.Bool]{
-			MsgConverter: ConvertBool,
-			Serializer:   SerializeBool,
-		}, nil
-	case "Byte":
-		return &channel.BuilderUtil[gengo_std_msgs.Byte, proto_std_msgs.Byte]{
-			MsgConverter: ConvertByte,
-			Serializer:   SerializeByte,
-		}, nil
-	case "Empty":
-		return &channel.BuilderUtil[gengo_std_msgs.Empty, proto_std_msgs.Empty]{
-			MsgConverter: ConvertEmpty,
-			Serializer:   SerializeEmpty,
-		}, nil
-	case "Float32":
-		return &channel.BuilderUtil[gengo_std_msgs.Float32, proto_std_msgs.Float32]{
-			MsgConverter: ConvertFloat32,
-			Serializer:   SerializeFloat32,
-		}, nil
-	case "Float32MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Float32MultiArray, proto_std_msgs.Float32MultiArray]{
-			MsgConverter: ConvertFloat32MultiArray,
-			Serializer:   SerializeFloat32MultiArray,
-		}, nil
-	case "UInt32MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt32MultiArray, proto_std_msgs.UInt32MultiArray]{
-			MsgConverter: ConvertUInt32MultiArray,
-			Serializer:   SerializeUInt32MultiArray,
-		}, nil
-	case "UInt8":
-		return &channel.BuilderUtil[gengo_std_msgs.UInt8, proto_std_msgs.UInt8]{
-			MsgConverter: ConvertUInt8,
-			Serializer:   SerializeUInt8,
+	case "SoundRequestAction":
+		return &channel.BuilderUtil[gengo_sound_play.SoundRequestAction, proto_sound_play.SoundRequestAction]{
+			MsgConverter: ConvertSoundRequestAction,
+			Serializer:   SerializeSoundRequestAction,
 		}, nil
 	case "Char":
 		return &channel.BuilderUtil[gengo_std_msgs.Char, proto_std_msgs.Char]{
@@ -8353,65 +6807,165 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 			MsgConverter: ConvertInt8,
 			Serializer:   SerializeInt8,
 		}, nil
-	case "Int8MultiArray":
-		return &channel.BuilderUtil[gengo_std_msgs.Int8MultiArray, proto_std_msgs.Int8MultiArray]{
-			MsgConverter: ConvertInt8MultiArray,
-			Serializer:   SerializeInt8MultiArray,
+	case "UInt16":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt16, proto_std_msgs.UInt16]{
+			MsgConverter: ConvertUInt16,
+			Serializer:   SerializeUInt16,
 		}, nil
-	case "MultiArrayDimension":
-		return &channel.BuilderUtil[gengo_std_msgs.MultiArrayDimension, proto_std_msgs.MultiArrayDimension]{
-			MsgConverter: ConvertMultiArrayDimension,
-			Serializer:   SerializeMultiArrayDimension,
+	case "Float32MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Float32MultiArray, proto_std_msgs.Float32MultiArray]{
+			MsgConverter: ConvertFloat32MultiArray,
+			Serializer:   SerializeFloat32MultiArray,
+		}, nil
+	case "ByteMultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.ByteMultiArray, proto_std_msgs.ByteMultiArray]{
+			MsgConverter: ConvertByteMultiArray,
+			Serializer:   SerializeByteMultiArray,
+		}, nil
+	case "Float64MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Float64MultiArray, proto_std_msgs.Float64MultiArray]{
+			MsgConverter: ConvertFloat64MultiArray,
+			Serializer:   SerializeFloat64MultiArray,
 		}, nil
 	case "MultiArrayLayout":
 		return &channel.BuilderUtil[gengo_std_msgs.MultiArrayLayout, proto_std_msgs.MultiArrayLayout]{
 			MsgConverter: ConvertMultiArrayLayout,
 			Serializer:   SerializeMultiArrayLayout,
 		}, nil
+	case "Time":
+		return &channel.BuilderUtil[gengo_std_msgs.Time, proto_std_msgs.Time]{
+			MsgConverter: ConvertTime,
+			Serializer:   SerializeTime,
+		}, nil
+	case "UInt64":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt64, proto_std_msgs.UInt64]{
+			MsgConverter: ConvertUInt64,
+			Serializer:   SerializeUInt64,
+		}, nil
+	case "UInt8MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt8MultiArray, proto_std_msgs.UInt8MultiArray]{
+			MsgConverter: ConvertUInt8MultiArray,
+			Serializer:   SerializeUInt8MultiArray,
+		}, nil
+	case "Float32":
+		return &channel.BuilderUtil[gengo_std_msgs.Float32, proto_std_msgs.Float32]{
+			MsgConverter: ConvertFloat32,
+			Serializer:   SerializeFloat32,
+		}, nil
+	case "Int32":
+		return &channel.BuilderUtil[gengo_std_msgs.Int32, proto_std_msgs.Int32]{
+			MsgConverter: ConvertInt32,
+			Serializer:   SerializeInt32,
+		}, nil
+	case "Int8MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Int8MultiArray, proto_std_msgs.Int8MultiArray]{
+			MsgConverter: ConvertInt8MultiArray,
+			Serializer:   SerializeInt8MultiArray,
+		}, nil
+	case "Bool":
+		return &channel.BuilderUtil[gengo_std_msgs.Bool, proto_std_msgs.Bool]{
+			MsgConverter: ConvertBool,
+			Serializer:   SerializeBool,
+		}, nil
+	case "MultiArrayDimension":
+		return &channel.BuilderUtil[gengo_std_msgs.MultiArrayDimension, proto_std_msgs.MultiArrayDimension]{
+			MsgConverter: ConvertMultiArrayDimension,
+			Serializer:   SerializeMultiArrayDimension,
+		}, nil
 	case "UInt64MultiArray":
 		return &channel.BuilderUtil[gengo_std_msgs.UInt64MultiArray, proto_std_msgs.UInt64MultiArray]{
 			MsgConverter: ConvertUInt64MultiArray,
 			Serializer:   SerializeUInt64MultiArray,
 		}, nil
-	case "IncrementAction":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementAction, proto_teleop_tools_msgs.IncrementAction]{
-			MsgConverter: ConvertIncrementAction,
-			Serializer:   SerializeIncrementAction,
+	case "UInt8":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt8, proto_std_msgs.UInt8]{
+			MsgConverter: ConvertUInt8,
+			Serializer:   SerializeUInt8,
 		}, nil
-	case "IncrementActionFeedback":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementActionFeedback, proto_teleop_tools_msgs.IncrementActionFeedback]{
-			MsgConverter: ConvertIncrementActionFeedback,
-			Serializer:   SerializeIncrementActionFeedback,
+	case "Duration":
+		return &channel.BuilderUtil[gengo_std_msgs.Duration, proto_std_msgs.Duration]{
+			MsgConverter: ConvertDuration,
+			Serializer:   SerializeDuration,
 		}, nil
-	case "IncrementActionGoal":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementActionGoal, proto_teleop_tools_msgs.IncrementActionGoal]{
-			MsgConverter: ConvertIncrementActionGoal,
-			Serializer:   SerializeIncrementActionGoal,
+	case "Float64":
+		return &channel.BuilderUtil[gengo_std_msgs.Float64, proto_std_msgs.Float64]{
+			MsgConverter: ConvertFloat64,
+			Serializer:   SerializeFloat64,
 		}, nil
-	case "IncrementActionResult":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementActionResult, proto_teleop_tools_msgs.IncrementActionResult]{
-			MsgConverter: ConvertIncrementActionResult,
-			Serializer:   SerializeIncrementActionResult,
+	case "String":
+		return &channel.BuilderUtil[gengo_std_msgs.String, proto_std_msgs.String]{
+			MsgConverter: ConvertString,
+			Serializer:   SerializeString,
 		}, nil
-	case "IncrementFeedback":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementFeedback, proto_teleop_tools_msgs.IncrementFeedback]{
-			MsgConverter: ConvertIncrementFeedback,
-			Serializer:   SerializeIncrementFeedback,
+	case "UInt16MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt16MultiArray, proto_std_msgs.UInt16MultiArray]{
+			MsgConverter: ConvertUInt16MultiArray,
+			Serializer:   SerializeUInt16MultiArray,
 		}, nil
-	case "IncrementGoal":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementGoal, proto_teleop_tools_msgs.IncrementGoal]{
-			MsgConverter: ConvertIncrementGoal,
-			Serializer:   SerializeIncrementGoal,
+	case "Int32MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Int32MultiArray, proto_std_msgs.Int32MultiArray]{
+			MsgConverter: ConvertInt32MultiArray,
+			Serializer:   SerializeInt32MultiArray,
 		}, nil
-	case "IncrementResult":
-		return &channel.BuilderUtil[gengo_teleop_tools_msgs.IncrementResult, proto_teleop_tools_msgs.IncrementResult]{
-			MsgConverter: ConvertIncrementResult,
-			Serializer:   SerializeIncrementResult,
+	case "Int64":
+		return &channel.BuilderUtil[gengo_std_msgs.Int64, proto_std_msgs.Int64]{
+			MsgConverter: ConvertInt64,
+			Serializer:   SerializeInt64,
+		}, nil
+	case "Byte":
+		return &channel.BuilderUtil[gengo_std_msgs.Byte, proto_std_msgs.Byte]{
+			MsgConverter: ConvertByte,
+			Serializer:   SerializeByte,
+		}, nil
+	case "ColorRGBA":
+		return &channel.BuilderUtil[gengo_std_msgs.ColorRGBA, proto_std_msgs.ColorRGBA]{
+			MsgConverter: ConvertColorRGBA,
+			Serializer:   SerializeColorRGBA,
+		}, nil
+	case "Empty":
+		return &channel.BuilderUtil[gengo_std_msgs.Empty, proto_std_msgs.Empty]{
+			MsgConverter: ConvertEmpty,
+			Serializer:   SerializeEmpty,
+		}, nil
+	case "Header":
+		return &channel.BuilderUtil[gengo_std_msgs.Header, proto_std_msgs.Header]{
+			MsgConverter: ConvertHeader,
+			Serializer:   SerializeHeader,
+		}, nil
+	case "Int16":
+		return &channel.BuilderUtil[gengo_std_msgs.Int16, proto_std_msgs.Int16]{
+			MsgConverter: ConvertInt16,
+			Serializer:   SerializeInt16,
+		}, nil
+	case "Int16MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Int16MultiArray, proto_std_msgs.Int16MultiArray]{
+			MsgConverter: ConvertInt16MultiArray,
+			Serializer:   SerializeInt16MultiArray,
+		}, nil
+	case "Int64MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.Int64MultiArray, proto_std_msgs.Int64MultiArray]{
+			MsgConverter: ConvertInt64MultiArray,
+			Serializer:   SerializeInt64MultiArray,
+		}, nil
+	case "UInt32":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt32, proto_std_msgs.UInt32]{
+			MsgConverter: ConvertUInt32,
+			Serializer:   SerializeUInt32,
+		}, nil
+	case "UInt32MultiArray":
+		return &channel.BuilderUtil[gengo_std_msgs.UInt32MultiArray, proto_std_msgs.UInt32MultiArray]{
+			MsgConverter: ConvertUInt32MultiArray,
+			Serializer:   SerializeUInt32MultiArray,
 		}, nil
 	case "Packet":
 		return &channel.BuilderUtil[gengo_theora_image_transport.Packet, proto_theora_image_transport.Packet]{
 			MsgConverter: ConvertPacket,
 			Serializer:   SerializePacket,
+		}, nil
+	case "Velocity":
+		return &channel.BuilderUtil[gengo_turtle_actionlib.Velocity, proto_turtle_actionlib.Velocity]{
+			MsgConverter: ConvertVelocity,
+			Serializer:   SerializeVelocity,
 		}, nil
 	case "ShapeAction":
 		return &channel.BuilderUtil[gengo_turtle_actionlib.ShapeAction, proto_turtle_actionlib.ShapeAction]{
@@ -8447,26 +7001,6 @@ func GetBuilderFromName(name string) (iface.Builder, error) {
 		return &channel.BuilderUtil[gengo_turtle_actionlib.ShapeResult, proto_turtle_actionlib.ShapeResult]{
 			MsgConverter: ConvertShapeResult,
 			Serializer:   SerializeShapeResult,
-		}, nil
-	case "Velocity":
-		return &channel.BuilderUtil[gengo_turtle_actionlib.Velocity, proto_turtle_actionlib.Velocity]{
-			MsgConverter: ConvertVelocity,
-			Serializer:   SerializeVelocity,
-		}, nil
-	case "SensorState":
-		return &channel.BuilderUtil[gengo_turtlebot3_msgs.SensorState, proto_turtlebot3_msgs.SensorState]{
-			MsgConverter: ConvertSensorState,
-			Serializer:   SerializeSensorState,
-		}, nil
-	case "Sound":
-		return &channel.BuilderUtil[gengo_turtlebot3_msgs.Sound, proto_turtlebot3_msgs.Sound]{
-			MsgConverter: ConvertSound,
-			Serializer:   SerializeSound,
-		}, nil
-	case "VersionInfo":
-		return &channel.BuilderUtil[gengo_turtlebot3_msgs.VersionInfo, proto_turtlebot3_msgs.VersionInfo]{
-			MsgConverter: ConvertVersionInfo,
-			Serializer:   SerializeVersionInfo,
 		}, nil
 	case "UniqueID":
 		return &channel.BuilderUtil[gengo_uuid_msgs.UniqueID, proto_uuid_msgs.UniqueID]{

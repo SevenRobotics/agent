@@ -44,6 +44,7 @@ func (b *Bridge[S, P]) Run(wg *sync.WaitGroup) {
 				continue
 			}
 
+
 			out, err := b.converter(msg)
 
 			//let the higher level code deal with the error

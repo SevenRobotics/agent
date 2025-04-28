@@ -2,15 +2,20 @@ package main
 
 import (
 	"go_agent/config"
+	"go_agent/publishers/rmq"
 	"go_agent/telemetry/cmd/channel"
 	"go_agent/telemetry/gengo/ros/converter"
 	"go_agent/utils"
 	"io/fs"
 	"log"
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
+	"fmt"
 	"strings"
+	"sync"
+	// "github.com/rabbitmq/amqp091-go"
 
 	"gopkg.in/yaml.v2"
 )
@@ -46,6 +51,8 @@ func main() {
 
 	_, b, _, _ := runtime.Caller(0)
 	basepath := filepath.Dir(b)
+
+	var wg sync.WaitGroup
 
 	rosGoDir := filepath.Join(basepath, g.ProtoDir)
 	var pkgname string
@@ -95,12 +102,68 @@ func main() {
 	var node_config config.RosNodeConfig
 	nodeDecoder := yaml.NewDecoder(nf)
 
+
+
 	err = nodeDecoder.Decode(&node_config)
 	if err != nil {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
-	topicList := []string{"/cmd_vel","/scan"}
+
+	topicList := []string{"/odom_with_amcl","/scan"}
+
+	conn, err := rmq.NewRabbitMQ(rmq_config)
+
+	if err != nil {
+		fmt.Errorf("Failed to connect to RMQ Server:%v", err)
+	}
+
+	client, err := conn.NewClient("tasksubscriber")
+
+	if err != nil {
+	    fmt.Errorf("Failed to create RMQ Client : %v", err)
+	}
+
+	// Create subscriber configuration
+	subscriberConfig := config.RMQClientConfig{
+		Exchange:   "robot_exchange",
+		Topic:      "task_queue",
+		RoutingKey: "task_key",
+		Durable:    true,
+		Autodelete: false,
+		Ctx:        context.Background(),
+	}
+
+	subscriber, err := rmq.NewRMQSubscriber[any](subscriberConfig, client)
+	if err != nil {
+		log.Fatalf("Error decoding Node Config from: %v", err)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		
+		log.Printf("Starting to listen for messages on queue 'task' with routing key 'task_key'")
+		deliveries, err := subscriber.Receive()
+			if err != nil {
+				log.Printf("Error receiving messages: %v", err)
+				return
+			}
+		
+		for {
+			
+			for msg := range deliveries {
+				log.Printf("Received message from %s: %s", msg.RoutingKey, string(msg.Body))
+				
+				// Acknowledge the message to remove it from the queue
+				if err := msg.Ack(false); err != nil {
+					log.Printf("Error acknowledging message: %v", err)
+				}
+			}
+		}
+		
+		log.Printf("Subscriber stopped")
+	}()
 
 	conductor, err := channel.NewConductor(rmq_config, node_config)
 	if err != nil {
@@ -111,4 +174,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Conductor Failed: %v", err)
 	}
+
+
+	
+	wg.Wait()
 }
