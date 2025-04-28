@@ -100,7 +100,7 @@ func main() {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
-	topicList := []string{"/scan", "/Imu"}
+	topicList := []string{"/cmd_vel","/scan"}
 
 	conductor, err := channel.NewConductor(rmq_config, node_config)
 	if err != nil {
