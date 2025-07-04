@@ -42,7 +42,7 @@ func NewGen() *GeneratorUtil {
 	rosSubOutputDir := "../../subscribers/ros/"
 	goOutputDir := "../../telemetry/gengo/ros/"
 	converterDir := "../../telemetry/cmd/channel/"
-	blacklist := []string{"turtlesim","firebase_data_retrieve", "tf","gazebo_video_monitor_msgs","dm-vio-ros-live","seven_robotics_msgs","object_recognition_msgs","geographic_msgs","rosserial_msgs","foxglove_msgs","aruco_msgs","seven_robot_perception","rtabmap_ros","obstacle_detector","mask_rcnn_ros","costmap_2d","sick_scan","apriltag_ros","teb_local_planner","costmap_converter","control_msgs","gazebo_msgs","ar_track_alvar_msgs","graph_msgs","map_msgs","move_base_msgs","octomap_msgs","pcl_msgs","people_msgs","shape_msgs","stereo_msgs","tf2_msgs","trajectory_msgs","turtlebot3_example","visualization_msgs"}
+	blacklist := []string{"turtlesim","firebase_data_retrieve", "tf","gazebo_video_monitor_msgs","dm-vio-ros-live","object_recognition_msgs","geographic_msgs","rosserial_msgs","foxglove_msgs","aruco_msgs","seven_robot_perception","rtabmap_ros","obstacle_detector","mask_rcnn_ros","costmap_2d","sick_scan","apriltag_ros","teb_local_planner","costmap_converter","control_msgs","gazebo_msgs","ar_track_alvar_msgs","graph_msgs","map_msgs","move_base_msgs","octomap_msgs","pcl_msgs","people_msgs","shape_msgs","stereo_msgs","tf2_msgs","trajectory_msgs","turtlebot3_example","visualization_msgs"}
 	return &GeneratorUtil{
 		OutputDir:       defaultOutputDir,
 		ProtoDir:        relativeProtoDir,
