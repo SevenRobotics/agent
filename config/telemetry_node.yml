@@ -1,2 +1,3 @@
 name: "telemetry_node"
 address: "127.0.0.1:11311"
+agent_id: "amr001"

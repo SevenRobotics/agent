@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"fmt"
 	"go_agent/config"
 	"go_agent/iface"
@@ -10,6 +11,7 @@ import (
 
 	// "log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -82,6 +84,42 @@ func NewConductor(rmqConf config.RMQConfig, nodeConfig config.RosNodeConfig) (Co
 		client:      apimaster.NewClient(nodeConfig.Address, nodeConfig.Name, &http.Client{}),
 		builderutil: builder_util,
 	}, nil
+}
+
+func normalizeAgentID(agentID string) string {
+	normalized := strings.ToLower(strings.TrimSpace(agentID))
+	if normalized == "" {
+		return ""
+	}
+
+	normalized = strings.ReplaceAll(normalized, "_", "")
+	normalized = strings.ReplaceAll(normalized, "-", "")
+
+	if strings.HasPrefix(normalized, "amr") {
+		suffix := strings.TrimPrefix(normalized, "amr")
+		suffix = strings.TrimPrefix(suffix, ".")
+		if id, err := strconv.Atoi(suffix); err == nil {
+			return fmt.Sprintf("amr.%03d", id)
+		}
+	}
+
+	return normalized
+}
+
+func exchangeName(agentID string) string {
+	return normalizeAgentID(agentID) + ".exchange"
+}
+
+func topicRouteName(topic string) string {
+	return strings.Trim(strings.TrimSpace(topic), ".")
+}
+
+func routingKey(agentID, topic string) string {
+	return normalizeAgentID(agentID) + "." + topicRouteName(topic)
+}
+
+func queueName(agentID, topic string) string {
+	return routingKey(agentID, topic) + ".q"
 }
 
 func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan int) {
@@ -245,6 +283,11 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 }
 
 func (c *conductor) ConfigureBuilders() error {
+	agentID := normalizeAgentID(c.nodeConfig.AgentID)
+	if agentID == "" {
+		return fmt.Errorf("agent_id is required in telemetry node config")
+	}
+
 	for k := range c.internalState.ValidTopics {
 		if info, ok := c.internalState.Topics[k]; ok {
 			var err error
@@ -258,11 +301,12 @@ func (c *conductor) ConfigureBuilders() error {
 				c.internalState.Configs[k] = &config.RRPipelineConfig{
 					RMQConnConfig: c.rmqConfig,
 					RMQPubConfig: config.RMQClientConfig{
-						Exchange:   "robot1",
-						Topic:      k,
-						RoutingKey: strings.Join([]string{info.Package, info.Name}, ".") + ".*",
+						Exchange:   exchangeName(agentID),
+						Topic:      queueName(agentID, k),
+						RoutingKey: routingKey(agentID, k),
 						Durable:    true,
 						Autodelete: false,
+						Ctx:        context.Background(),
 					},
 					SubConfig: config.RosSubscriberConfig{
 						Node: config.RosNodeConfig{

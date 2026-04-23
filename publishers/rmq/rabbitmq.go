@@ -4,15 +4,12 @@ import (
 	"context"
 	"fmt"
 	"go_agent/config"
-	"strings"
 	"sync"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var lock = &sync.Mutex{}
-
-const queueNamePrefix = "sr1"
 
 type RabbitMQMaster interface {
 	Connect() RabbitMQMaster
@@ -156,21 +153,13 @@ func (rc *rabbitClient) NewExchangeDeclare(exchangeName, kind string, durable, a
 	return err
 }
 
-func prefixedQueueName(queueName string) string {
-	if queueName == "" || queueName == queueNamePrefix || strings.HasPrefix(queueName, queueNamePrefix+".") {
-		return queueName
-	}
-
-	return queueNamePrefix + "." + queueName
-}
-
 func (rc *rabbitClient) NewQueueDeclare(queueName string, durable, autodelete bool) error {
-	_, err := rc.ch.QueueDeclare(prefixedQueueName(queueName), durable, autodelete, false, false, nil)
+	_, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
 	return err
 }
 
 func (rc *rabbitClient) CreateBinding(name string, binding string, exchange string) error {
-	return rc.ch.QueueBind(prefixedQueueName(name), binding, exchange, false, nil)
+	return rc.ch.QueueBind(name, binding, exchange, false, nil)
 }
 
 func (rc *rabbitClient) Send(ctx context.Context, exchange, routingKey string, options amqp.Publishing) error {
@@ -178,5 +167,5 @@ func (rc *rabbitClient) Send(ctx context.Context, exchange, routingKey string, o
 }
 
 func (rc *rabbitClient) Receive(ctx context.Context, queue, consumer string, autoAck bool) (<-chan amqp.Delivery, error) {
-	return rc.ch.ConsumeWithContext(ctx, prefixedQueueName(queue), consumer, autoAck, false, false, false, nil)
+	return rc.ch.ConsumeWithContext(ctx, queue, consumer, autoAck, false, false, false, nil)
 }

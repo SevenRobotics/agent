@@ -7,6 +7,7 @@ import (
 type RosNodeConfig struct {
 	Name    string `yaml:"name"`
 	Address string `yaml:"address"`
+	AgentID string `yaml:"agent_id"`
 }
 
 type RosSubscriberConfig struct {
