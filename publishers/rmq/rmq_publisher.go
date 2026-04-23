@@ -24,7 +24,7 @@ func (r *rmqPublisher[P]) Send(msg P) error {
 	}
 
 	err = r.client.Send(r.config.Ctx, r.config.Exchange, r.config.RoutingKey, amqp091.Publishing{
-		ContentType:  "text/plain",
+		ContentType:  "application/x-protobuf",
 		DeliveryMode: amqp091.Persistent,
 		Body:         []byte(wiremsg),
 	})
