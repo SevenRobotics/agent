@@ -20,8 +20,13 @@ func (s *rosSubscriber[T]) callback(msg *T) {
 		return
 	}
 
-	//how to handle this channel being closed?
 	if msg != nil {
+		// Protect against sending on a closed channel
+		defer func() {
+			if r := recover(); r != nil {
+				s.initiliased = false
+			}
+		}()
 		s.outChannel <- *msg
 	}
 }
@@ -72,4 +77,16 @@ func (s *rosSubscriber[T]) Initialise(out chan<- T) error {
 	s.initiliased = true
 
 	return nil
+}
+
+func (s *rosSubscriber[T]) Close() {
+	s.initiliased = false
+	if s.sub != nil {
+		s.sub.Close()
+		s.sub = nil
+	}
+	if s.node != nil {
+		s.node.Close()
+		s.node = nil
+	}
 }

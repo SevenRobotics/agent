@@ -123,7 +123,7 @@ func queueName(agentID, topic string) string {
 }
 
 func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan int) {
-	c.ticker = time.NewTicker(100 * time.Millisecond)
+	c.ticker = time.NewTicker(1 * time.Second)
 	defer c.ticker.Stop()
 	defer c.waitGroup.Done()
 
@@ -132,7 +132,12 @@ func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan i
 		case <-c.ticker.C:
 			topics, err := c.client.GetPublishedTopics("")
 			if err != nil {
-				c.errorChannels["self"] <- err
+				// Master is likely down, reporting this to self
+				select {
+				case c.errorChannels["self"] <- err:
+				default:
+				}
+				continue
 			}
 			newtopics := [][]string{}
 			for _, topic := range topics {
@@ -175,8 +180,8 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 		c.internalState.UserRequestedTopics[topic] = struct{}{}
 	}
 
+	c.waitForRosMaster()
 	err := c.LoadTopicInfo()
-
 	if err != nil {
 		return err
 	}
@@ -207,7 +212,15 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 				c.BuildPipelines()
 				c.RunPipelines(c.waitGroup)
 			case err := <-c.errorChannels["self"]:
-				log.Printf("Error scanning for new topics: %v\n", err)
+				log.Printf("ROS Master disconnected or error scanning: %v\n", err)
+				c.shutdownAllPipelines()
+				c.waitForRosMaster()
+				// After recovery, reset and reload
+				c.resetTopicState()
+				c.LoadTopicInfo()
+				c.ConfigureBuilders()
+				c.BuildPipelines()
+				c.RunPipelines(c.waitGroup)
 			case <-done:
 				return
 			}
@@ -222,6 +235,36 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 
 	c.waitGroup.Wait()
 	return nil
+}
+
+func (c *conductor) isRosMasterAvailable() bool {
+	_, err := c.client.GetPublishedTopics("")
+	return err == nil
+}
+
+func (c *conductor) waitForRosMaster() {
+	for !c.isRosMasterAvailable() {
+		log.Printf("ROS Master not available at %s, retrying in 5s...", c.nodeConfig.Address)
+		time.Sleep(5 * time.Second)
+	}
+	log.Printf("ROS Master is online at %s", c.nodeConfig.Address)
+}
+
+func (c *conductor) shutdownAllPipelines() {
+	for name, pipeline := range c.internalState.Pipelines {
+		if pipeline.IsActive() {
+			log.Printf("Shutting down pipeline %s\n", name)
+			pipeline.Shutdown()
+		}
+	}
+}
+
+func (c *conductor) resetTopicState() {
+	c.internalState.Topics = TopicInfo{}
+	c.internalState.ValidTopics = map[string]struct{}{}
+	c.internalState.Builders = map[string]iface.Builder{}
+	c.internalState.Pipelines = map[string]iface.Pipeline{}
+	c.internalState.Configs = map[string]*config.RRPipelineConfig{}
 }
 
 func (c *conductor) LoadTopicInfo() error {

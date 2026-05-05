@@ -8,13 +8,16 @@ import (
 	"go_agent/utils"
 	"io/fs"
 	"log"
+
 	// "context"
 	"os"
 	"path/filepath"
 	"runtime"
+
 	// "fmt"
 	"strings"
 	"sync"
+
 	// "github.com/rabbitmq/amqp091-go"
 
 	"gopkg.in/yaml.v2"
@@ -102,15 +105,12 @@ func main() {
 	var node_config config.RosNodeConfig
 	nodeDecoder := yaml.NewDecoder(nf)
 
-
-
 	err = nodeDecoder.Decode(&node_config)
 	if err != nil {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
-
-	topicList := []string{"/odom_with_amcl","/uavcanRosBridge/uavcan_ros_bridge/Battery"}
+	topicList := []string{"/odom_with_amcl"}
 
 	// conn, err := rmq.NewRabbitMQ(rmq_config)
 
@@ -142,26 +142,26 @@ func main() {
 	// wg.Add(1)
 	// go func() {
 	// 	defer wg.Done()
-		
+
 	// 	log.Printf("Starting to listen for messages on queue 'task' with routing key 'task_key'")
 	// 	deliveries, err := subscriber.Receive()
 	// 		if err != nil {
 	// 			log.Printf("Error receiving messages: %v", err)
 	// 			return
 	// 		}
-		
+
 	// 	for {
-			
+
 	// 		for msg := range deliveries {
 	// 			log.Printf("Received message from %s: %s", msg.RoutingKey, string(msg.Body))
-				
+
 	// 			// Acknowledge the message to remove it from the queue
 	// 			if err := msg.Ack(false); err != nil {
 	// 				log.Printf("Error acknowledging message: %v", err)
 	// 			}
 	// 		}
 	// 	}
-		
+
 	// 	log.Printf("Subscriber stopped")
 	// }()
 
@@ -175,7 +175,5 @@ func main() {
 		log.Fatalf("Conductor Failed: %v", err)
 	}
 
-
-	
 	wg.Wait()
 }

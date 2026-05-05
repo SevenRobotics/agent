@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"go_agent/config"
+	"log"
 	"sync"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -30,6 +32,7 @@ type RabbitClient interface {
 
 type rabbitClient struct {
 	// rule of thumb is to use a single connection per app and spawn channels for every task
+	mu   sync.RWMutex
 	conn *amqp.Connection // a tcp connection used by the client
 	ch   *amqp.Channel    // a multiplexed connection over the tcp connection i.e, conn
 }
@@ -37,21 +40,97 @@ type rabbitClient struct {
 var rabbitMQSingleton *rabbitMQ
 
 type rabbitMQ struct {
+	mu      sync.RWMutex
 	conn    *amqp.Connection
 	conf    config.RMQConfig
 	clients map[string]*rabbitClient
 }
 
 func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
-	conn, err := amqp.Dial(fmt.Sprintf("amqp://%s:%s@%s/%s",
-		r.conf.Username, r.conf.Password, r.conf.Host, r.conf.Vhost))
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	conn, err := amqp.DialConfig(fmt.Sprintf("amqp://%s:%s@%s/%s",
+		r.conf.Username, r.conf.Password, r.conf.Host, r.conf.Vhost),
+		amqp.Config{
+			Heartbeat: 10 * time.Second,
+		},
+	)
 
 	if err != nil {
 		return nil, err
 	}
 
 	r.conn = conn
+	go r.monitorConnection()
 	return r, nil
+}
+
+func (r *rabbitMQ) monitorConnection() {
+	for {
+		closeCh := make(chan *amqp.Error, 1)
+		r.mu.RLock()
+		if r.conn == nil {
+			r.mu.RUnlock()
+			return
+		}
+		r.conn.NotifyClose(closeCh)
+		r.mu.RUnlock()
+
+		err := <-closeCh
+		if err == nil {
+			// Intentional close
+			return
+		}
+
+		log.Printf("RMQ connection lost: %v. Attempting to reconnect...", err)
+		r.reconnectWithBackoff()
+		r.recreateClientChannels()
+	}
+}
+
+func (r *rabbitMQ) reconnectWithBackoff() {
+	backoff := 1 * time.Second
+	maxBackoff := 30 * time.Second
+
+	for {
+		log.Printf("RMQ reconnecting in %v...", backoff)
+		time.Sleep(backoff)
+
+		_, err := r.Connect()
+		if err == nil {
+			log.Printf("RMQ successfully reconnected")
+			return
+		}
+
+		log.Printf("RMQ reconnection failed: %v", err)
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+}
+
+func (r *rabbitMQ) recreateClientChannels() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.conn == nil || r.conn.IsClosed() {
+		return
+	}
+
+	for name, client := range r.clients {
+		log.Printf("Recreating channel for RMQ client: %s", name)
+		ch, err := r.conn.Channel()
+		if err != nil {
+			log.Printf("Failed to recreate channel for %s: %v", name, err)
+			continue
+		}
+		client.mu.Lock()
+		client.conn = r.conn
+		client.ch = ch
+		client.mu.Unlock()
+	}
 }
 
 func createRabbitMQ(conf config.RMQConfig) (*rabbitMQ, error) {
@@ -102,6 +181,8 @@ func NewRabbitMQ(conf config.RMQConfig) (*rabbitMQ, error) {
 }
 
 func (r *rabbitMQ) HasClient(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if _, ok := r.clients[name]; !ok {
 		return false
 	}
@@ -109,16 +190,24 @@ func (r *rabbitMQ) HasClient(name string) bool {
 }
 
 func (r *rabbitMQ) Close() error {
-	return r.conn.Close()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.conn != nil {
+		return r.conn.Close()
+	}
+	return nil
 }
 
 func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
-	if r.conn == nil {
-		return nil, fmt.Errorf("Cannot add clients to an uninitialized RMQ Connection")
-	}
-
 	if r.HasClient(name) {
 		return nil, fmt.Errorf("Client already exists, please provide a new key")
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.conn == nil {
+		return nil, fmt.Errorf("Cannot add clients to an uninitialized RMQ Connection")
 	}
 
 	ch, err := r.conn.Channel()
@@ -136,36 +225,55 @@ func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
 }
 
 func (r *rabbitMQ) RemoveClient(name string) error {
-	if !r.HasClient(name) {
+	r.mu.Lock()
+	client, ok := r.clients[name]
+	if !ok {
+		r.mu.Unlock()
 		return fmt.Errorf("Client %s does not exist", name)
 	}
+	delete(r.clients, name)
+	r.mu.Unlock()
 
-	r.clients[name].Close()
-	return nil
+	return client.Close()
 }
 
 func (rc *rabbitClient) Close() error {
-	return rc.ch.Close()
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	if rc.ch != nil {
+		return rc.ch.Close()
+	}
+	return nil
 }
 
 func (rc *rabbitClient) NewExchangeDeclare(exchangeName, kind string, durable, autodelete bool) error {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	err := rc.ch.ExchangeDeclare(exchangeName, kind, durable, autodelete, false, false, nil)
 	return err
 }
 
 func (rc *rabbitClient) NewQueueDeclare(queueName string, durable, autodelete bool) error {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	_, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
 	return err
 }
 
 func (rc *rabbitClient) CreateBinding(name string, binding string, exchange string) error {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	return rc.ch.QueueBind(name, binding, exchange, false, nil)
 }
 
 func (rc *rabbitClient) Send(ctx context.Context, exchange, routingKey string, options amqp.Publishing) error {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	return rc.ch.PublishWithContext(ctx, exchange, routingKey, true, false, options)
 }
 
 func (rc *rabbitClient) Receive(ctx context.Context, queue, consumer string, autoAck bool) (<-chan amqp.Delivery, error) {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	return rc.ch.ConsumeWithContext(ctx, queue, consumer, autoAck, false, false, false, nil)
 }

@@ -5,6 +5,7 @@ import (
 	"go_agent/config"
 	"go_agent/publishers"
 	"sync"
+	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 )
@@ -37,17 +38,25 @@ func (r *rmqPublisher[P]) Send(msg P) error {
 
 func (r *rmqPublisher[P]) Run(in <-chan P, done chan int, errCh chan error, wg *sync.WaitGroup) {
 	defer wg.Done()
+	var lastErrTime time.Time
 	for {
 		select {
 		case <-done:
 			return
 		case msg, ok := <-in:
 			if !ok {
-				continue
+				return
 			}
 			err := r.Send(msg)
 			if err != nil {
-				errCh <- fmt.Errorf("publisher %s Send failed: %v", r.name, err)
+				// Throttle error reporting to prevent log flooding during outages
+				if time.Since(lastErrTime) > 5*time.Second {
+					select {
+					case errCh <- fmt.Errorf("publisher %s Send failed: %v", r.name, err):
+						lastErrTime = time.Now()
+					default:
+					}
+				}
 			}
 		}
 	}

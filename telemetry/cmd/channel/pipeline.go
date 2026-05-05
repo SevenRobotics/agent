@@ -70,22 +70,43 @@ func (p *pipeline[S, P]) Deactivate() {
 	p.active = false
 }
 
-func (p *pipeline[S, P]) Shutdown() {}
+func (p *pipeline[S, P]) Shutdown() {
+	if !p.active {
+		return
+	}
+	p.active = false
+
+	// Signal bridge and publisher goroutines to exit
+	select {
+	case p.done <- 1:
+	default:
+	}
+
+	// Close the ROS subscriber (node + subscriber cleanup)
+	if p.subscriber != nil {
+		p.subscriber.Close()
+	}
+}
 
 func (p *pipeline[S, P]) Start(wg *sync.WaitGroup) {
-
 	p.active = true
-
 	defer wg.Done()
+
 	fmt.Printf("Starting pipeline %s\n", p.name)
 
 	wg.Add(1)
 	go p.bridge.Run(wg)
+
 	err := p.subscriber.Initialise(p.in)
 	if err != nil {
-		p.errorChannel <- err
+		p.active = false
+		select {
+		case p.errorChannel <- fmt.Errorf("failed to initialise subscriber for %s: %v", p.name, err):
+		default:
+		}
 		return
 	}
+
 	wg.Add(1)
 	go p.publisher.Run(p.out, p.done, p.errorChannel, wg)
 }

@@ -36,24 +36,33 @@ func (b *Bridge[S, P]) Run(wg *sync.WaitGroup) {
 
 		case msg, ok := <-b.input:
 			if !ok {
-				continue
+				return
 			}
 
 			if b.converter == nil {
-				b.errCh <- fmt.Errorf("Converter not set")
+				select {
+				case b.errCh <- fmt.Errorf("Converter not set"):
+				default:
+				}
 				continue
 			}
-
 
 			out, err := b.converter(msg)
 
 			//let the higher level code deal with the error
 			if err != nil {
-				b.errCh <- fmt.Errorf("Failure converting %s message", b.name)
+				select {
+				case b.errCh <- fmt.Errorf("Failure converting %s message", b.name):
+				default:
+				}
 				continue
 			}
 
-			b.output <- out
+			// Protect against sending on a closed channel
+			func() {
+				defer func() { recover() }()
+				b.output <- out
+			}()
 
 		case <-b.done:
 			return
