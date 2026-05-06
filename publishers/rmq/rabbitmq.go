@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go_agent/config"
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -63,6 +64,9 @@ func (r *rabbitMQ) dial() error {
 		r.conf.Username, r.conf.Password, r.conf.Host, r.conf.Vhost),
 		amqp.Config{
 			Heartbeat: 10 * time.Second,
+			Dial: func(network, addr string) (net.Conn, error) {
+				return net.DialTimeout(network, addr, 5*time.Second)
+			},
 		},
 	)
 
@@ -121,23 +125,67 @@ func (r *rabbitMQ) reconnectWithBackoff() {
 
 func (r *rabbitMQ) recreateClientChannels() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	clients := make(map[string]*rabbitClient)
+	for k, v := range r.clients {
+		clients[k] = v
+	}
+	r.mu.Unlock()
 
-	if r.conn == nil || r.conn.IsClosed() {
+	for name, client := range clients {
+		r.recreateClientChannel(name, client)
+	}
+}
+
+func (r *rabbitMQ) recreateClientChannel(name string, client *rabbitClient) {
+	r.mu.RLock()
+	conn := r.conn
+	r.mu.RUnlock()
+
+	if conn == nil || conn.IsClosed() {
 		return
 	}
 
-	for name, client := range r.clients {
-		log.Printf("Recreating channel for RMQ client: %s", name)
-		ch, err := r.conn.Channel()
-		if err != nil {
-			log.Printf("Failed to recreate channel for %s: %v", name, err)
-			continue
-		}
-		client.mu.Lock()
-		client.conn = r.conn
-		client.ch = ch
-		client.mu.Unlock()
+	log.Printf("Recreating channel for RMQ client: %s", name)
+	ch, err := conn.Channel()
+	if err != nil {
+		log.Printf("Failed to recreate channel for %s: %v. Will retry on next send.", name, err)
+		return
+	}
+
+	client.mu.Lock()
+	client.conn = conn
+	client.ch = ch
+	client.mu.Unlock()
+
+	// Start monitoring the new channel
+	go r.monitorChannel(name, client)
+}
+
+func (r *rabbitMQ) monitorChannel(name string, client *rabbitClient) {
+	closeCh := make(chan *amqp.Error, 1)
+	client.mu.RLock()
+	if client.ch == nil {
+		client.mu.RUnlock()
+		return
+	}
+	client.ch.NotifyClose(closeCh)
+	client.mu.RUnlock()
+
+	err := <-closeCh
+	if err == nil {
+		return // Intentional close
+	}
+
+	log.Printf("RMQ channel lost for client %s: %v. Attempting to recreate channel...", name, err)
+	
+	// Check if the connection is still alive. If it is, just recreate the channel.
+	// If the connection is dead, the connection monitor will handle it.
+	r.mu.RLock()
+	connAlive := r.conn != nil && !r.conn.IsClosed()
+	r.mu.RUnlock()
+
+	if connAlive {
+		r.recreateClientChannel(name, client)
 	}
 }
 
@@ -228,6 +276,9 @@ func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
 		conn: r.conn,
 		ch:   ch,
 	}
+
+	// Start monitoring the channel
+	go r.monitorChannel(name, r.clients[name])
 
 	return r.clients[name], nil
 }
