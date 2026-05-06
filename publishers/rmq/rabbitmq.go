@@ -263,32 +263,37 @@ func (r *rabbitMQ) Close() error {
 }
 
 func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
-	if r.HasClient(name) {
-		return nil, fmt.Errorf("Client already exists, please provide a new key")
+	r.mu.Lock()
+	client, exists := r.clients[name]
+	if exists {
+		r.mu.Unlock()
+		// Ensure the existing client has a valid channel
+		r.recreateClientChannel(name, client)
+		return client, nil
 	}
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
 	if r.conn == nil {
+		r.mu.Unlock()
 		return nil, fmt.Errorf("Cannot add clients to an uninitialized RMQ Connection")
 	}
 
 	ch, err := r.conn.Channel()
-
 	if err != nil {
+		r.mu.Unlock()
 		return nil, err
 	}
 
-	r.clients[name] = &rabbitClient{
+	client = &rabbitClient{
 		conn: r.conn,
 		ch:   ch,
 	}
+	r.clients[name] = client
+	r.mu.Unlock()
 
 	// Start monitoring the channel
-	go r.monitorChannel(name, r.clients[name])
+	go r.monitorChannel(name, client)
 
-	return r.clients[name], nil
+	return client, nil
 }
 
 func (r *rabbitMQ) RemoveClient(name string) error {
