@@ -209,11 +209,17 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 		for {
 			select {
 			case topics := <-topicS:
-				log.Printf("New topic discovered %v\n", topics)
+				log.Printf("New topics discovered %v\n", topics)
 				//load new topics, configure builders, build and run new pipelines
-				c.LoadTopicInfoFrom(topics)
-				c.ConfigureBuilders()
-				c.BuildPipelines()
+				if err := c.LoadTopicInfoFrom(topics); err != nil {
+					log.Printf("Error loading topic info: %v\n", err)
+				}
+				if err := c.ConfigureBuilders(); err != nil {
+					log.Printf("Error configuring builders: %v\n", err)
+				}
+				if err := c.BuildPipelines(); err != nil {
+					log.Printf("Error building pipelines: %v\n", err)
+				}
 				c.RunPipelines(c.waitGroup)
 			case err := <-c.errorChannels["self"]:
 				log.Printf("ROS Master disconnected or error scanning: %v\n", err)
@@ -221,9 +227,15 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 				c.waitForRosMaster()
 				// After recovery, reset and reload
 				c.resetTopicState()
-				c.LoadTopicInfo()
-				c.ConfigureBuilders()
-				c.BuildPipelines()
+				if err := c.LoadTopicInfo(); err != nil {
+					log.Printf("Error loading topic info after recovery: %v\n", err)
+				}
+				if err := c.ConfigureBuilders(); err != nil {
+					log.Printf("Error configuring builders after recovery: %v\n", err)
+				}
+				if err := c.BuildPipelines(); err != nil {
+					log.Printf("Error building pipelines after recovery: %v\n", err)
+				}
 				c.RunPipelines(c.waitGroup)
 			case <-done:
 				return
@@ -378,24 +390,27 @@ func (c *conductor) ConfigureBuilders() error {
 
 func (c *conductor) BuildPipelines() error {
 	for name, builder := range c.internalState.Builders {
-		if conf, ok := c.internalState.Configs[name]; ok {
-			if pipe, ok := c.internalState.Pipelines[name]; ok {
-				if pipe.IsActive() {
-					log.Printf("Pipeline %s is active, will not rebuild\n", pipe.Name())
-					continue
-				} else {
-					log.Printf("Pipeline %s is inactive\n", pipe.Name())
-				}
-			}
-
-			p, err := builder.BuildPipeline(*conf)
-			if err != nil {
-				return fmt.Errorf("Failed to build pipeline for %s: %v", name, err)
-			}
-			c.internalState.Pipelines[name] = p
-		} else {
-			return fmt.Errorf("Pipeline Config not found for %s", name)
+		conf, ok := c.internalState.Configs[name]
+		if !ok {
+			log.Printf("Pipeline Config not found for %s, skipping\n", name)
+			continue
 		}
+
+		if pipe, ok := c.internalState.Pipelines[name]; ok {
+			if pipe.IsActive() {
+				log.Printf("Pipeline %s is active, will not rebuild\n", pipe.Name())
+				continue
+			} else {
+				log.Printf("Pipeline %s is inactive\n", pipe.Name())
+			}
+		}
+
+		p, err := builder.BuildPipeline(*conf)
+		if err != nil {
+			log.Printf("Failed to build pipeline for %s: %v\n", name, err)
+			continue
+		}
+		c.internalState.Pipelines[name] = p
 		log.Printf("Pipeline created for %s\n", name)
 		c.errorChannels[name] = c.internalState.Pipelines[name].GetErrorStream()
 	}
@@ -405,16 +420,25 @@ func (c *conductor) BuildPipelines() error {
 func (c *conductor) RunPipelines(wg *sync.WaitGroup) {
 	for _, pipeline := range c.internalState.Pipelines {
 		if !pipeline.IsActive() {
-			c.errorChannels[pipeline.Name()] = pipeline.GetErrorStream()
+			errCh := pipeline.GetErrorStream()
+			c.errorChannels[pipeline.Name()] = errCh
 			c.waitGroup.Add(1)
-			go func(errCh chan error) {
+			go func(name string, p iface.Pipeline, ch chan error) {
+				defer c.waitGroup.Done()
 				for {
 					select {
-					case err := <-errCh:
-						log.Printf("Error on %s: %v\n", pipeline.Name(), err)
+					case err, ok := <-ch:
+						if !ok {
+							return
+						}
+						log.Printf("Error on %s: %v\n", name, err)
+					case <-time.After(1 * time.Second):
+						if !p.IsActive() {
+							return
+						}
 					}
 				}
-			}(c.errorChannels[pipeline.Name()])
+			}(pipeline.Name(), pipeline, errCh)
 			c.waitGroup.Add(1)
 			go pipeline.Start(c.waitGroup)
 		}
