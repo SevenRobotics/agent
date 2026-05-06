@@ -145,6 +145,14 @@ func (r *rabbitMQ) recreateClientChannel(name string, client *rabbitClient) {
 		return
 	}
 
+	client.mu.RLock()
+	// If the channel is already open and using the current connection, skip recreation
+	if client.ch != nil && !client.ch.IsClosed() && client.conn == conn {
+		client.mu.RUnlock()
+		return
+	}
+	client.mu.RUnlock()
+
 	log.Printf("Recreating channel for RMQ client: %s", name)
 	ch, err := conn.Channel()
 	if err != nil {
