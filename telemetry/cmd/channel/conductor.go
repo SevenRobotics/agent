@@ -150,8 +150,12 @@ func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan i
 					topicName = t[1]
 				}
 
-				if _, ok := c.internalState.Topics[topicName]; !ok {
-					newtopics = append(newtopics, topic)
+				// Only consider it a "new topic" if it was requested by the user
+				// and we haven't already initialized it.
+				if _, ok := c.internalState.UserRequestedTopics[topic[0]]; ok {
+					if _, ok := c.internalState.Topics[topicName]; !ok {
+						newtopics = append(newtopics, topic)
+					}
 				}
 			}
 
@@ -296,6 +300,11 @@ func (c *conductor) loadTopicInfo(topics [][]string) error {
 	}
 
 	for _, message := range topics {
+		// Only process topics that were explicitly requested by the user
+		if _, ok := c.internalState.UserRequestedTopics[message[0]]; !ok {
+			continue
+		}
+
 		tmp := strings.Split(message[1], "/")
 		info := MessageInfo{
 			Name:    tmp[1],
