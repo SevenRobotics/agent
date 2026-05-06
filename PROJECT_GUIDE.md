@@ -1,213 +1,414 @@
-# Project Guide: ROS-to-RabbitMQ Go Agent
+================================================================================
+ROS-TO-RABBITMQ GO TELEMETRY AGENT - ARCHITECTURE OVERVIEW
+================================================================================
 
-This repository contains a Go telemetry agent that discovers ROS 1 topics, subscribes to selected topics, converts ROS messages into Protocol Buffer messages, and publishes serialized protobuf payloads to RabbitMQ.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          SYSTEM COMPONENTS                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-The codebase has two major parts:
+┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
+│   ROS MASTER     │         │   GO TELEMETRY   │         │    RABBITMQ      │
+│  (127.0.0.1:     │◄───────►│      AGENT       │────────►│   AMQP BROKER    │
+│    11311)        │         │                  │         │                  │
+└──────────────────┘         └──────────────────┘         └──────────────────┘
+        │                             │                             │
+        │ Publishes topics            │ Subscribes & converts       │ Receives
+        │ /odom_with_amcl, etc.       │ ROS → Protobuf             │ protobuf
+        │                             │                             │ payloads
 
-- A ROS message generator in `code-generator/` that creates Go ROS message types, `.proto` files, protobuf Go bindings, converters, serializers, and typed pipeline builders.
-- A runtime in `telemetry/`, `subscribers/`, and `publishers/` that wires ROS subscriptions to RabbitMQ publishers.
 
-## Requirements
+================================================================================
+CODE GENERATION PHASE (Offline - code-generator/)
+================================================================================
 
-- Go `1.22.5` or newer.
-- ROS 1 with a reachable ROS master. The current default is `127.0.0.1:11311`.
-- RabbitMQ with a reachable AMQP endpoint.
-- `protoc` and `protoc-gen-go` for regenerating protobuf bindings.
-- A ROS environment where package paths are discoverable before running the generator. Source the relevant ROS workspace first, for example `source /opt/ros/<distro>/setup.bash` and, when applicable, the workspace `devel/setup.bash`.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  INPUT: ROS Package Definitions (discovered via ROS_PACKAGE_PATH)           │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+        ┌───────────────────────────────────────────────┐
+        │   code-generator/rostoproto/                  │
+        │   - FindRosPackages()                         │
+        │   - Template-based code generation            │
+        └───────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+                    ▼                               ▼
+        ┌─────────────────────┐         ┌─────────────────────┐
+        │  .proto files       │         │  Go ROS Messages    │
+        │  telemetry/         │         │  telemetry/gengo/   │
+        │  protobuf/ros/      │         │  ros/<pkg>/msg_*.go │
+        └─────────────────────┘         └─────────────────────┘
+                    │                               │
+                    │ protoc                        │
+                    ▼                               │
+        ┌─────────────────────┐                    │
+        │  Protobuf Go        │                    │
+        │  telemetry/         │                    │
+        │  genproto/ros/      │                    │
+        │  <pkg>/<Msg>.pb.go  │                    │
+        └─────────────────────┘                    │
+                    │                               │
+                    └───────────────┬───────────────┘
+                                    ▼
+        ┌───────────────────────────────────────────────┐
+        │  Generated Artifacts:                         │
+        │  - Converters (ROS → Protobuf)                │
+        │  - Serializers (Protobuf → bytes)            │
+        │  - Pipeline Builders                          │
+        │  - Subscriber Wrappers                        │
+        │                                               │
+        │  Output: telemetry/gengo/ros/converter/       │
+        │          converter.go                         │
+        │          subscribers/ros/<pkg>/<Msg>.go       │
+        └───────────────────────────────────────────────┘
 
-## Configuration
 
-Runtime configuration lives in `config/`.
+================================================================================
+RUNTIME ARCHITECTURE (telemetry/main.go)
+================================================================================
 
-- `config/telemetry_node.yml`
-  - `name`: ROS node name used by the conductor when querying the ROS master.
-  - `address`: ROS master address, for example `127.0.0.1:11311`.
-  - `agent_id`: Robot/agent identifier used to build RabbitMQ exchange, routing key, and queue names.
-- `config/rmq_config.yml`
-  - `username`, `password`, `host`, and `vhost` for the RabbitMQ AMQP connection.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        INITIALIZATION SEQUENCE                               │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Do not treat the checked-in YAML as production-secret storage. For real deployments, inject credentials through your deployment layer or replace the local file during provisioning.
+1. Load Configuration
+   ├── config/telemetry_node.yml  (ROS master, node name, agent_id)
+   └── config/rmq_config.yml      (RabbitMQ credentials)
 
-## Runtime Flow
+2. Scan Generated Artifacts
+   └── Build utils.GeneratorState map from telemetry/genproto/ros/
 
-The main telemetry runtime is `telemetry/main.go`.
+3. Register Builders
+   └── converter.AssignBuilder() registers all generated pipeline builders
 
-1. It scans `telemetry/genproto/ros/` to build a `utils.GeneratorState` map of generated ROS message support.
-2. It calls `converter.AssignBuilder()` from `telemetry/gengo/ros/converter/converter.go`. This registers generated builders under the `ros-rmq` builder key used by the conductor.
-3. It loads RabbitMQ and ROS node config from `config/`.
-4. It starts a `channel.Conductor`, currently with a hard-coded topic allowlist in `telemetry/main.go`.
-5. The conductor waits for ROS master availability, discovers published topics, filters them to user-requested topics that have generated type support, builds pipelines, and starts them.
-6. Each pipeline performs:
-   - ROS subscription through `subscribers.NewRosSubscriber`.
-   - ROS-to-protobuf conversion through a generated converter.
-   - Protobuf serialization through a generated serializer.
-   - RabbitMQ publishing through `publishers/rmq`.
+4. Start Conductor
+   └── Hard-coded topic allowlist: ["/odom_with_amcl"]
 
-Run the telemetry runtime with:
 
-```bash
-go run ./telemetry
-```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CONDUCTOR (channel.Conductor)                             │
+│                   telemetry/cmd/channel/conductor.go                         │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-For local generator-only experiments, `test.go` and `code-generator/main.go` both run the generator:
+                    ┌─────────────────────┐
+                    │  Wait for ROS       │
+                    │  Master Available   │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  Discover Published │
+                    │  ROS Topics         │
+                    │  (Poll every 1 sec) │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  Filter Topics      │
+                    │  - In allowlist?    │
+                    │  - Has generated    │
+                    │    type support?    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  Build Pipelines    │
+                    │  (one per topic)    │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │  Start All          │
+                    │  Pipelines          │
+                    └─────────────────────┘
 
-```bash
-go run ./code-generator
-go run ./test.go
-```
+    RESILIENCE: On ROS Master Failure
+    └──► Shutdown pipelines → Wait for master → Rebuild → Restart
 
-## Topic Selection
 
-At the moment, runtime topic selection is not config-driven. `telemetry/main.go` contains:
+================================================================================
+PIPELINE ARCHITECTURE (channel.Pipeline)
+================================================================================
 
-```go
-topicList := []string{"/odom_with_amcl"}
-```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     PER-TOPIC PIPELINE INSTANCE                              │
+│                   telemetry/cmd/channel/pipeline.go                          │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Update this list when you want the agent to publish additional topics. The topic must be published by ROS and its ROS message type must exist in the generated artifacts. If the topic type is missing from generated support, the conductor will ignore it.
+    ROS Topic: /odom_with_amcl
+    ROS Type:  nav_msgs/Odometry
+    Proto Type: nav_msgs.Odometry
 
-## RabbitMQ Naming
+┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────┐
+│ ROS          │      │              │      │              │      │ RabbitMQ │
+│ Subscriber   │─────►│    Bridge    │─────►│ RMQ          │─────►│ Broker   │
+│              │ chan │              │ chan │ Publisher    │ AMQP │          │
+│ (goroslib)   │  in  │  Converter   │ out  │              │      │          │
+└──────────────┘      │  Serializer  │      └──────────────┘      └──────────┘
+                      └──────────────┘
 
-RabbitMQ names are derived in `telemetry/cmd/channel/conductor.go`.
+CHANNELS (unbuffered):
+├── in:   ROS messages (type S)
+├── out:  Serialized protobuf ([]byte)
+├── done: Shutdown signal
+└── err:  Error reporting
 
-- `agent_id` is normalized by lowercasing, removing `_` and `-`, and converting values like `amr001` or `amr1` to `amr.001`.
-- Exchange: `<agent_id>.exchange`
-- Routing key: `<agent_id>.<topic>`
-- Queue: `<agent_id>.<topic>.q`
+COMPONENTS:
 
-ROS topic names are normalized for internal maps by replacing nested `/` separators with `.`, so `/foo/bar` becomes `foo.bar`. The outbound routing key uses that dotted topic form.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. ROS Subscriber (subscribers/ros_subscriber.go)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - Uses goroslib to subscribe to ROS topic                                   │
+│ - Receives ROS messages via callbacks                                       │
+│ - Forwards to 'in' channel                                                  │
+│ - Handles callback→closed channel gracefully                                │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Example for `agent_id: amr001` and topic `/odom_with_amcl`:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2. Bridge (channel.Bridge)                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - Reads from 'in' channel                                                   │
+│ - Converts: ROS type S → Protobuf type P (generated converter)             │
+│ - Serializes: Protobuf P → []byte (generated serializer)                   │
+│ - Writes to 'out' channel                                                   │
+│ - Recovers from closed channel during shutdown                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-- Exchange: `amr.001.exchange`
-- Routing key: `amr.001.odom_with_amcl`
-- Queue: `amr.001.odom_with_amcl.q`
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3. RMQ Publisher (publishers/rmq/rmq_publisher.go)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ - Reads from 'out' channel                                                  │
+│ - Publishes []byte to RabbitMQ                                              │
+│ - Declares exchange, queue, binding on init                                 │
+│ - Uses shared RMQ connection singleton                                      │
+│ - Throttles error logging (1 per 5 seconds)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-## Generated Artifacts
 
-Generated files are a core part of this repository. Avoid manually editing them unless you are debugging generator output.
+================================================================================
+RABBITMQ INFRASTRUCTURE (publishers/rmq/)
+================================================================================
 
-- `telemetry/protobuf/ros/<pkg>/<Msg>.proto`: generated proto definitions.
-- `telemetry/genproto/ros/<pkg>/<Msg>.pb.go`: generated Go protobuf bindings.
-- `telemetry/gengo/ros/<pkg>/msg_*.go`: generated Go ROS message types used by `goroslib`.
-- `telemetry/gengo/ros/converter/converter.go`: generated ROS-to-protobuf converters, protobuf serializers, and `GetBuilderFromName`.
-- `subscribers/ros/<pkg>/<Msg>.go`: generated subscriber-facing ROS message wrappers.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    CONNECTION SINGLETON                                      │
+│                   (rmq.NewRabbitMQ)                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-The generator code lives in `code-generator/rostoproto/`. Its defaults write generated output relative to that package:
+    One Shared Connection Per Process
+    ├── TCP Dial Timeout: 5 seconds
+    ├── AMQP Heartbeat: 10 seconds
+    └── Per-Pipeline Channel Clients
 
-- protobuf Go output: `telemetry/genproto/ros/`
-- proto definitions: `telemetry/protobuf/ros/`
-- goroslib Go message output: `telemetry/gengo/ros/`
-- ROS subscriber type output: `subscribers/ros/`
-- converter/builder output: `telemetry/gengo/ros/converter/converter.go`
+    RECONNECTION STRATEGY:
+    ├── Monitor connection & channel closure
+    ├── Exponential backoff: 1s → 30s cap
+    ├── Recreate all client channels after reconnect
+    └── Persistent messages (no offline buffer)
 
-The generator discovers ROS packages via `code-generator/rostoproto/util.FindRosPackages()` and skips packages in the blacklist inside `code-generator/rostoproto/cmd.go`.
 
-## Regenerating ROS and Protobuf Code
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         NAMING CONVENTION                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-Before regenerating, make sure ROS package paths are available in the shell and `protoc` plus `protoc-gen-go` are installed.
+    agent_id: "amr001" → normalized: "amr.001"
+    topic:    "/odom_with_amcl" → normalized: "odom_with_amcl"
 
-```bash
-go run ./code-generator
-```
+    Exchange:    <agent_id>.exchange          → "amr.001.exchange"
+    Routing Key: <agent_id>.<topic>           → "amr.001.odom_with_amcl"
+    Queue:       <agent_id>.<topic>.q         → "amr.001.odom_with_amcl.q"
 
-After regeneration:
 
-```bash
-go test ./...
-```
+================================================================================
+DATA FLOW (End-to-End Message Journey)
+================================================================================
 
-Expected regeneration side effects include changes under `telemetry/protobuf/ros/`, `telemetry/genproto/ros/`, `telemetry/gengo/ros/`, `subscribers/ros/`, and `telemetry/gengo/ros/converter/converter.go`.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 1: ROS Message Published                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+    ROS Node publishes nav_msgs/Odometry to /odom_with_amcl
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 2: goroslib Subscriber Callback                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+    RosSubscriber[nav_msgs.Odometry] receives message
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 3: Forward to Pipeline                                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+    Send nav_msgs.Odometry → 'in' channel (unbuffered)
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 4: Bridge Conversion                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+    Generated Converter: nav_msgs.Odometry (ROS) 
+                         → nav_msgs.Odometry (Protobuf)
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 5: Protobuf Serialization                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+    Generated Serializer: nav_msgs.Odometry (Protobuf) → []byte
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 6: Forward Serialized Message                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+    Send []byte → 'out' channel (unbuffered)
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  STEP 7: RabbitMQ Publish                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+    RMQPublisher publishes to:
+    - Exchange: "amr.001.exchange"
+    - Routing Key: "amr.001.odom_with_amcl"
+    - Queue: "amr.001.odom_with_amcl.q"
+    - Message: Persistent, Content-Type: application/x-protobuf
 
-## Important Packages
 
-- `telemetry/cmd/channel`
-  - `conductor.go`: discovers ROS topics, builds pipeline configs, handles ROS master loss/recovery, and starts pipelines.
-  - `pipeline.go`: owns one ROS subscriber, bridge, and RabbitMQ publisher for one topic.
-  - `bridge.go`: converts messages from ROS type `S` to protobuf type `P`.
-  - `builder.go`: generic builder wrapper used by generated builder registrations.
-- `subscribers`
-  - `subscriber.go`: generic subscriber interface.
-  - `ros_subscriber.go`: `goroslib` subscriber implementation.
-- `publishers`
-  - `publisher.go`: generic publisher interface.
-  - `rmq/rabbitmq.go`: RabbitMQ connection singleton, channel clients, reconnect loop, exchanges, queues, bindings, publish, and consume.
-  - `rmq/rmq_publisher.go`: typed protobuf publisher with serializer hook.
-  - `rmq/rmq_subscriber.go`: RabbitMQ consumer helper.
-- `config`
-  - `telemetry_config.go`: shared config structs for ROS, RabbitMQ, and ROS-RMQ pipeline setup.
-- `utils`
-  - `generator_state.go`: generated-message state and global builder registry.
-- `services`
-  - Currently skeletal gRPC/task scaffolding.
-- `cmd`, `telemetry/cmd/init`, top-level `Makefile`, `telemetry/Makefile`, and `services/Makefile`
-  - Currently placeholders or empty.
+================================================================================
+RESILIENCE & ERROR HANDLING
+================================================================================
 
-## Pipeline Details
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ROS MASTER FAILURE RECOVERY                                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Conductor polls ROS master every 1 second                               │
+│  2. On scan failure:                                                        │
+│     └──► Shutdown all pipelines                                             │
+│     └──► Wait for ROS master reachable                                      │
+│     └──► Reset state (topics, builders, pipelines)                          │
+│     └──► Rebuild pipelines                                                  │
+│     └──► Restart pipelines                                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-`channel.NewPipeline` creates unbuffered `in`, `out`, `done`, and error channels. It initializes:
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  RABBITMQ CONNECTION FAILURE RECOVERY                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Monitor connection & channel closure events                             │
+│  2. On connection loss:                                                     │
+│     └──► Reconnect with exponential backoff (1s → 30s)                      │
+│     └──► Recreate all client channels                                       │
+│  3. On individual channel loss:                                             │
+│     └──► Recreate channel if connection alive                               │
+│  4. Messages during outage: LOST (no offline buffer)                        │
+│  5. Error logging: Throttled to 1 per 5 seconds                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-- `subscribers.NewRosSubscriber[S]` for the ROS topic.
-- `rmq.NewRabbitMQ`, which is a singleton connection per process.
-- One RabbitMQ client/channel per pipeline name.
-- `rmq.NewRMQPublisher[P]`, which declares the topic exchange, queue, and binding.
-- A `Bridge[S, P]` with generated converter and serializer functions.
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CHANNEL BACKPRESSURE                                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  - Unbuffered channels create natural backpressure                          │
+│  - Slow RMQ publish blocks Bridge                                           │
+│  - Bridge blocks ROS subscriber callback                                    │
+│  - Consider buffering for high-frequency topics                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-`pipeline.Start` launches the bridge, initializes the ROS subscriber, then launches the publisher. `pipeline.Shutdown` signals `done` and closes the ROS subscriber/node.
 
-Current channel behavior to keep in mind:
+================================================================================
+DIRECTORY STRUCTURE
+================================================================================
 
-- Pipeline channels are unbuffered, so slow RabbitMQ publishing can apply backpressure to conversion and ROS callback forwarding.
-- `Bridge` and ROS subscriber callbacks recover from sends to closed channels, but lifecycle changes should still be made carefully.
-- Publisher send errors are throttled to avoid log flooding during RabbitMQ outages.
-- RabbitMQ reconnect recreates client channels, but publisher declarations and bindings are performed during initial configure. Reconnection behavior should be tested when changing RMQ lifecycle code.
+ros-to-rabbitmq-agent/
+├── code-generator/
+│   ├── rostoproto/              # Core generator logic
+│   │   ├── cmd.go              # Package discovery, blacklist
+│   │   └── util.go             # FindRosPackages()
+│   └── main.go                 # Generator entrypoint
+│
+├── telemetry/
+│   ├── main.go                 # Runtime entrypoint (TOPIC ALLOWLIST HERE)
+│   ├── cmd/
+│   │   └── channel/
+│   │       ├── conductor.go    # Topic discovery & lifecycle
+│   │       ├── pipeline.go     # Per-topic pipeline
+│   │       ├── bridge.go       # Conversion logic
+│   │       └── builder.go      # Builder wrapper
+│   ├── protobuf/ros/           # Generated .proto files
+│   ├── genproto/ros/           # Generated .pb.go files
+│   └── gengo/ros/
+│       ├── <pkg>/msg_*.go      # Generated ROS messages
+│       └── converter/
+│           └── converter.go    # Generated converters & builders
+│
+├── subscribers/
+│   ├── subscriber.go           # Generic interface
+│   ├── ros_subscriber.go       # goroslib implementation
+│   └── ros/<pkg>/<Msg>.go      # Generated wrappers
+│
+├── publishers/
+│   ├── publisher.go            # Generic interface
+│   └── rmq/
+│       ├── rabbitmq.go         # Connection singleton
+│       ├── rmq_publisher.go    # Typed publisher
+│       └── rmq_subscriber.go   # Consumer helper
+│
+├── config/
+│   ├── telemetry_node.yml      # ROS master, agent_id
+│   └── rmq_config.yml          # RabbitMQ credentials
+│
+└── utils/
+    └── generator_state.go      # Builder registry
 
-## Development Commands
 
-Common commands:
+================================================================================
+KEY WORKFLOWS
+================================================================================
 
-```bash
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  ADDING A NEW ROS TOPIC                                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Source ROS workspace: source /opt/ros/<distro>/setup.bash              │
+│  2. Run generator: go run ./code-generator                                  │
+│  3. Verify generated artifacts in:                                          │
+│     - telemetry/genproto/ros/<pkg>/                                         │
+│     - telemetry/gengo/ros/<pkg>/                                            │
+│     - telemetry/gengo/ros/converter/converter.go                            │
+│  4. Add topic to allowlist in telemetry/main.go:                            │
+│     topicList := []string{"/odom_with_amcl", "/new_topic"}                  │
+│  5. Test: go test ./...                                                     │
+│  6. Run: go run ./telemetry                                                 │
+│  7. Verify RabbitMQ exchange/queue creation                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+CURRENT LIMITATIONS & GAPS
+================================================================================
+
+❌ Hard-coded topic allowlist (in telemetry/main.go)
+❌ No config-driven topic selection
+❌ No automated integration tests for recovery scenarios
+❌ No offline message buffering during RMQ outages
+❌ No environment variable override for config
+❌ Placeholder cmd/ and Makefile structure
+❌ No end-to-end delivery guarantees
+❌ Review burden for large generated file diffs
+
+
+================================================================================
+DEVELOPMENT COMMANDS
+================================================================================
+
+# Download dependencies
 go mod download
+
+# Run all tests
 go test ./...
+
+# Regenerate code (requires ROS env sourced)
 go run ./code-generator
+
+# Run telemetry agent
 go run ./telemetry
-```
 
-Build packages without running the long-lived telemetry process:
-
-```bash
+# Build without running
 go test ./... -run '^$'
-```
 
-Format Go changes:
-
-```bash
+# Format code
 gofmt -w <files>
-```
-
-## Adding Support for a New ROS Topic
-
-1. Ensure the ROS package that defines the topic message is discoverable in the shell.
-2. Run `go run ./code-generator`.
-3. Confirm generated support exists in `telemetry/genproto/ros/`, `telemetry/gengo/ros/`, and `telemetry/gengo/ros/converter/converter.go`.
-4. Add the ROS topic path to `topicList` in `telemetry/main.go`.
-5. Run `go test ./...`.
-6. Run `go run ./telemetry` with ROS master and RabbitMQ available.
-7. Confirm the expected RabbitMQ exchange, routing key, and queue are created.
-
-## Coding Guidelines
-
-- Prefer existing generic interfaces (`Subscriber`, `Publisher`, `Pipeline`, `Builder`) before adding new abstractions.
-- Keep handwritten runtime changes out of generated trees unless you are changing the generator.
-- When changing message conversion or serialization behavior, update the generator templates/functions in `code-generator/rostoproto/`, then regenerate.
-- Keep topic and routing-name behavior consistent with `conductor.go`; downstream consumers depend on those names.
-- Treat `telemetry/main.go` as the current runtime entrypoint, not the placeholder packages under `cmd/`.
-- Be careful with shared RabbitMQ singleton state in tests or multi-pipeline changes.
-
-## Known Gaps
-
-- Topic allowlisting is hard-coded in `telemetry/main.go`.
-- There is no committed automated integration test for ROS master discovery or RabbitMQ publish/consume behavior.
-- Several app/service entrypoints and Makefiles are placeholders.
-- The checked-in config format has no environment-variable override layer yet.
-- Generated files are large, so reviews should distinguish generator changes from regeneration churn.
