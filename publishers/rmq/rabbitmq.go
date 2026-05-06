@@ -47,6 +47,15 @@ type rabbitMQ struct {
 }
 
 func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
+	err := r.dial()
+	if err != nil {
+		return nil, err
+	}
+	go r.monitorConnection()
+	return r, nil
+}
+
+func (r *rabbitMQ) dial() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -58,12 +67,11 @@ func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
 	)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	r.conn = conn
-	go r.monitorConnection()
-	return r, nil
+	return nil
 }
 
 func (r *rabbitMQ) monitorConnection() {
@@ -97,7 +105,7 @@ func (r *rabbitMQ) reconnectWithBackoff() {
 		log.Printf("RMQ reconnecting in %v...", backoff)
 		time.Sleep(backoff)
 
-		_, err := r.Connect()
+		err := r.dial()
 		if err == nil {
 			log.Printf("RMQ successfully reconnected")
 			return
