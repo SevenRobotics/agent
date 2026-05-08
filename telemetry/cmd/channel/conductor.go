@@ -71,6 +71,8 @@ type conductor struct {
 	builderutil utils.BuilderFinder
 }
 
+const rmqPipelineRetryInterval = 10 * time.Second
+
 func NewConductor(rmqConf config.RMQConfig, nodeConfig config.RosNodeConfig) (Conductor, error) {
 
 	builder_util := utils.NewBuilder("ros-rmq", nil)
@@ -206,6 +208,9 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 	c.waitGroup.Add(1)
 	go func(topicS chan [][]string, done chan int, conductor *conductor) {
 		defer c.waitGroup.Done()
+		retryTicker := time.NewTicker(rmqPipelineRetryInterval)
+		defer retryTicker.Stop()
+
 		for {
 			select {
 			case topics := <-topicS:
@@ -235,6 +240,15 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 				}
 				if err := c.BuildPipelines(); err != nil {
 					log.Printf("Error building pipelines after recovery: %v\n", err)
+				}
+				c.RunPipelines(c.waitGroup)
+			case <-retryTicker.C:
+				if !c.hasPendingPipelines() {
+					continue
+				}
+				log.Printf("Retrying pending RabbitMQ pipelines")
+				if err := c.BuildPipelines(); err != nil {
+					log.Printf("Error retrying pending RabbitMQ pipelines: %v\n", err)
 				}
 				c.RunPipelines(c.waitGroup)
 			case <-done:
@@ -415,6 +429,20 @@ func (c *conductor) BuildPipelines() error {
 		c.errorChannels[name] = c.internalState.Pipelines[name].GetErrorStream()
 	}
 	return nil
+}
+
+func (c *conductor) hasPendingPipelines() bool {
+	for name := range c.internalState.Builders {
+		if _, ok := c.internalState.Configs[name]; !ok {
+			continue
+		}
+
+		pipeline, ok := c.internalState.Pipelines[name]
+		if !ok || !pipeline.IsActive() {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *conductor) RunPipelines(wg *sync.WaitGroup) {
