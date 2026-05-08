@@ -1,24 +1,21 @@
 package main
 
 import (
+	"context"
 	"go_agent/config"
-	// "go_agent/publishers/rmq"
 	"go_agent/telemetry/cmd/channel"
+	"go_agent/telemetry/cmd/inbound"
 	"go_agent/telemetry/gengo/ros/converter"
 	"go_agent/utils"
 	"io/fs"
 	"log"
 
-	// "context"
 	"os"
 	"path/filepath"
 	"runtime"
 
-	// "fmt"
 	"strings"
 	"sync"
-
-	// "github.com/rabbitmq/amqp091-go"
 
 	"gopkg.in/yaml.v2"
 )
@@ -95,6 +92,27 @@ func main() {
 		log.Fatalf("Error decoding RMQ Config from %s: %v", config_path, err)
 	}
 
+	config_path = filepath.Join(basepath, g.ConfigDir, "inbound_rmq.yml")
+	inboundFile, err := os.Open(config_path)
+	if err != nil {
+		log.Fatalf("Inbound RMQ Configuration not found @ %s: %v", config_path, err)
+	}
+	defer inboundFile.Close()
+
+	var inboundConfig config.RMQInboundConfig
+	inboundDecoder := yaml.NewDecoder(inboundFile)
+
+	err = inboundDecoder.Decode(&inboundConfig)
+	if err != nil {
+		log.Fatalf("Error decoding Inbound RMQ Config from %s: %v", config_path, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := inbound.StartEnabled(ctx, rmq_config, inboundConfig, &wg); err != nil {
+		log.Fatalf("Failed to start inbound RMQ receivers: %v", err)
+	}
+
 	config_path = filepath.Join(basepath, g.ConfigDir, "telemetry_node.yml")
 	nf, err := os.Open(config_path)
 	if err != nil {
@@ -111,63 +129,10 @@ func main() {
 	}
 
 	topicList := []string{"/odom_with_amcl",
-"/cmd_vel","/cmd_vel_filtered",
-"/move_base_flex_SmacLattice_unsmoothed_plan",
-"/move_base_flex_TebLocalPlannerROS_global_plan","/task_feedback",
-"/uavcanRosBridge/uavcan_ros_bridge/Battery"}
-
-	// conn, err := rmq.NewRabbitMQ(rmq_config)
-
-	// if err != nil {
-	// 	fmt.Errorf("Failed to connect to RMQ Server:%v", err)
-	// }
-
-	// client, err := conn.NewClient("tasksubscriber")
-
-	// if err != nil {
-	//     fmt.Errorf("Failed to create RMQ Client : %v", err)
-	// }
-
-	// // Create subscriber configuration
-	// subscriberConfig := config.RMQClientConfig{
-	// 	Exchange:   "robot_exchange",
-	// 	Topic:      "task_queue",
-	// 	RoutingKey: "task_key",
-	// 	Durable:    true,
-	// 	Autodelete: false,
-	// 	Ctx:        context.Background(),
-	// }
-
-	// subscriber, err := rmq.NewRMQSubscriber[any](subscriberConfig, client)
-	// if err != nil {
-	// 	log.Fatalf("Error decoding Node Config from: %v", err)
-	// }
-
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-
-	// 	log.Printf("Starting to listen for messages on queue 'task' with routing key 'task_key'")
-	// 	deliveries, err := subscriber.Receive()
-	// 		if err != nil {
-	// 			log.Printf("Error receiving messages: %v", err)
-	// 			return
-	// 		}
-
-	// 	for {
-
-	// 		for msg := range deliveries {
-	// 			log.Printf("Received message from %s: %s", msg.RoutingKey, string(msg.Body))
-
-	// 			// Acknowledge the message to remove it from the queue
-	// 			if err := msg.Ack(false); err != nil {
-	// 				log.Printf("Error acknowledging message: %v", err)
-	// 			}
-	// 		}
-	// 	}
-
-	// 	log.Printf("Subscriber stopped")
-	// }()
+		"/cmd_vel", "/cmd_vel_filtered",
+		"/move_base_flex_SmacLattice_unsmoothed_plan",
+		"/move_base_flex_TebLocalPlannerROS_global_plan", "/task_feedback",
+		"/uavcanRosBridge/uavcan_ros_bridge/Battery"}
 
 	conductor, err := channel.NewConductor(rmq_config, node_config)
 	if err != nil {
@@ -176,8 +141,10 @@ func main() {
 
 	err = conductor.Start(&genState, topicList)
 	if err != nil {
+		cancel()
 		log.Fatalf("Conductor Failed: %v", err)
 	}
 
+	cancel()
 	wg.Wait()
 }

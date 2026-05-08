@@ -1,0 +1,8 @@
+receivers:
+  - name: "joystick"
+    enabled: true
+    exchange: "client"
+    queue: "joystick"
+    consumer: "agent-joystick"
+    message_type: "geometry_msgs/Twist"
+    auto_ack: false

@@ -39,3 +39,17 @@ type RRPipelineConfig struct {
 	RMQPubConfig  RMQClientConfig
 	Name          string //name of the channel
 }
+
+type RMQInboundConfig struct {
+	Receivers []RMQInboundReceiverConfig `yaml:"receivers"`
+}
+
+type RMQInboundReceiverConfig struct {
+	Name        string `yaml:"name"`
+	Enabled     bool   `yaml:"enabled"`
+	Exchange    string `yaml:"exchange"`
+	Queue       string `yaml:"queue"`
+	Consumer    string `yaml:"consumer"`
+	MessageType string `yaml:"message_type"`
+	AutoAck     bool   `yaml:"auto_ack"`
+}
