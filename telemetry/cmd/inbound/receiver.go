@@ -30,6 +30,9 @@ type Receiver struct {
 	rmqConfig config.RMQConfig
 	rosConfig config.RosNodeConfig
 	config    config.RMQInboundReceiverConfig
+
+	rosSubscriberReady func(context.Context) (bool, error)
+	rosPollInterval    time.Duration
 }
 
 func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, receiverConfig config.RMQInboundReceiverConfig) (*Receiver, error) {
@@ -143,15 +146,25 @@ func (r *Receiver) consume(ctx context.Context) error {
 		r.config.AutoAck,
 	)
 
-	deliveries, err := client.Receive(ctx, r.config.Queue, r.config.Consumer, r.config.AutoAck)
+	consumeCtx, cancelConsume := context.WithCancel(ctx)
+	defer cancelConsume()
+
+	deliveries, err := client.Receive(consumeCtx, r.config.Queue, r.config.Consumer, r.config.AutoAck)
 	if err != nil {
 		return fmt.Errorf("consume queue %s: %w", r.config.Queue, err)
 	}
+
+	rosMonitor := r.monitorROSSubscriber(consumeCtx)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case err, ok := <-rosMonitor:
+			if ok && err != nil {
+				return err
+			}
+			rosMonitor = nil
 		case delivery, ok := <-deliveries:
 			if !ok {
 				return fmt.Errorf("delivery stream closed for queue %s", r.config.Queue)
@@ -175,8 +188,6 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher
 		r.rejectMalformed(delivery)
 		return
 	}
-
-	printTwist(r.config.Queue, delivery, msg)
 
 	rosMsg := protoTwistToROS(msg)
 	rosPub.publish(rosMsg)
@@ -206,25 +217,15 @@ func (r *Receiver) waitForROSSubscriber(ctx context.Context) error {
 		return nil
 	}
 
-	client := apimaster.NewClient(r.rosConfig.Address, r.config.RosNodeName, &http.Client{})
-	ticker := time.NewTicker(rosStatePollInterval)
+	ticker := time.NewTicker(r.getROSPollInterval())
 	defer ticker.Stop()
 
 	for {
-		ready, err := hasTopicSubscriber(client, r.config.RosTopic, r.config.WaitForRosSubscriber)
-		if err != nil {
-			return fmt.Errorf("check ROS subscriber %s for topic %s: %w", r.config.WaitForRosSubscriber, r.config.RosTopic, err)
-		}
-		if ready {
+		ready, err := r.isROSSubscriberReady(ctx)
+		if err == nil && ready {
 			return nil
 		}
-
-		log.Printf(
-			"Inbound receiver %s waiting for ROS subscriber %q on topic %q before publishing",
-			r.config.Name,
-			r.config.WaitForRosSubscriber,
-			r.config.RosTopic,
-		)
+		r.logROSWait(err)
 
 		select {
 		case <-ctx.Done():
@@ -232,6 +233,92 @@ func (r *Receiver) waitForROSSubscriber(ctx context.Context) error {
 		case <-ticker.C:
 		}
 	}
+}
+
+func (r *Receiver) monitorROSSubscriber(ctx context.Context) <-chan error {
+	monitorErr := make(chan error, 1)
+	if r.config.WaitForRosSubscriber == "" {
+		close(monitorErr)
+		return monitorErr
+	}
+
+	go func() {
+		defer close(monitorErr)
+
+		ticker := time.NewTicker(r.getROSPollInterval())
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+
+			ready, err := r.isROSSubscriberReady(ctx)
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
+				monitorErr <- fmt.Errorf(
+					"check ROS subscriber %s for topic %s: %w",
+					r.config.WaitForRosSubscriber,
+					r.config.RosTopic,
+					err,
+				)
+				return
+			}
+			if !ready {
+				monitorErr <- fmt.Errorf(
+					"ROS subscriber %q not available for topic %q",
+					r.config.WaitForRosSubscriber,
+					r.config.RosTopic,
+				)
+				return
+			}
+		}
+	}()
+
+	return monitorErr
+}
+
+func (r *Receiver) isROSSubscriberReady(ctx context.Context) (bool, error) {
+	if ctx.Err() != nil {
+		return false, ctx.Err()
+	}
+	if r.rosSubscriberReady != nil {
+		return r.rosSubscriberReady(ctx)
+	}
+
+	client := apimaster.NewClient(r.rosConfig.Address, r.config.RosNodeName, &http.Client{})
+	return hasTopicSubscriber(client, r.config.RosTopic, r.config.WaitForRosSubscriber)
+}
+
+func (r *Receiver) logROSWait(err error) {
+	if err != nil {
+		log.Printf(
+			"Inbound receiver %s waiting for ROS master/subscriber %q on topic %q before publishing: %v",
+			r.config.Name,
+			r.config.WaitForRosSubscriber,
+			r.config.RosTopic,
+			err,
+		)
+		return
+	}
+
+	log.Printf(
+		"Inbound receiver %s waiting for ROS subscriber %q on topic %q before publishing",
+		r.config.Name,
+		r.config.WaitForRosSubscriber,
+		r.config.RosTopic,
+	)
+}
+
+func (r *Receiver) getROSPollInterval() time.Duration {
+	if r.rosPollInterval > 0 {
+		return r.rosPollInterval
+	}
+	return rosStatePollInterval
 }
 
 func hasTopicSubscriber(client *apimaster.Client, topic string, subscriberName string) (bool, error) {
@@ -351,24 +438,4 @@ func (r *Receiver) rejectMalformed(delivery amqp.Delivery) {
 			err,
 		)
 	}
-}
-
-func printTwist(queue string, delivery amqp.Delivery, msg *geometrymsgs.Twist) {
-	linear := msg.GetLinear()
-	angular := msg.GetAngular()
-
-	log.Printf(
-		"Received %s queue=%q routing_key=%q delivery_tag=%d content_type=%q linear=(x=%f y=%f z=%f) angular=(x=%f y=%f z=%f)",
-		twistMessageType,
-		queue,
-		delivery.RoutingKey,
-		delivery.DeliveryTag,
-		delivery.ContentType,
-		linear.GetX(),
-		linear.GetY(),
-		linear.GetZ(),
-		angular.GetX(),
-		angular.GetY(),
-		angular.GetZ(),
-	)
 }
