@@ -6,3 +6,5 @@ receivers:
     consumer: "agent-joystick"
     message_type: "geometry_msgs/Twist"
     auto_ack: false
+    ros_topic: "/cmd_vel"
+    ros_node_name: "joystick_cmd_vel_publisher"

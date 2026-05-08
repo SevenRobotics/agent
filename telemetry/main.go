@@ -109,9 +109,6 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err := inbound.StartEnabled(ctx, rmq_config, inboundConfig, &wg); err != nil {
-		log.Fatalf("Failed to start inbound RMQ receivers: %v", err)
-	}
 
 	config_path = filepath.Join(basepath, g.ConfigDir, "telemetry_node.yml")
 	nf, err := os.Open(config_path)
@@ -128,18 +125,35 @@ func main() {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
-	topicList := []string{"/odom_with_amcl",
-		"/cmd_vel", "/cmd_vel_filtered",
-		"/move_base_flex_SmacLattice_unsmoothed_plan",
-		"/move_base_flex_TebLocalPlannerROS_global_plan", "/task_feedback",
-		"/uavcanRosBridge/uavcan_ros_bridge/Battery"}
+	if err := inbound.StartEnabled(ctx, rmq_config, node_config, inboundConfig, &wg); err != nil {
+		log.Fatalf("Failed to start inbound RMQ receivers: %v", err)
+	}
+
+	config_path = filepath.Join(basepath, g.ConfigDir, "telemetry_topics.yml")
+	topicsFile, err := os.Open(config_path)
+	if err != nil {
+		log.Fatalf("Telemetry topics configuration not found @ %s: %v", config_path, err)
+	}
+	defer topicsFile.Close()
+
+	var topicsConfig config.TelemetryTopicsConfig
+	topicsDecoder := yaml.NewDecoder(topicsFile)
+
+	err = topicsDecoder.Decode(&topicsConfig)
+	if err != nil {
+		log.Fatalf("Error decoding telemetry topics config from %s: %v", config_path, err)
+	}
+
+	if len(topicsConfig.Topics) == 0 {
+		log.Fatalf("No telemetry topics configured in %s", config_path)
+	}
 
 	conductor, err := channel.NewConductor(rmq_config, node_config)
 	if err != nil {
 		log.Fatalf("New Conductor Could not be created: %v", err)
 	}
 
-	err = conductor.Start(&genState, topicList)
+	err = conductor.Start(&genState, topicsConfig.Topics)
 	if err != nil {
 		cancel()
 		log.Fatalf("Conductor Failed: %v", err)

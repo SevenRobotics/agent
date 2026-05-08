@@ -52,4 +52,10 @@ type RMQInboundReceiverConfig struct {
 	Consumer    string `yaml:"consumer"`
 	MessageType string `yaml:"message_type"`
 	AutoAck     bool   `yaml:"auto_ack"`
+	RosTopic    string `yaml:"ros_topic"`
+	RosNodeName string `yaml:"ros_node_name"`
+}
+
+type TelemetryTopicsConfig struct {
+	Topics []string `yaml:"topics"`
 }

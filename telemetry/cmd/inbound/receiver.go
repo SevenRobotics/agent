@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"go_agent/config"
 	"go_agent/publishers/rmq"
+	rosgeometrymsgs "go_agent/telemetry/gengo/ros/geometry_msgs"
 	geometrymsgs "go_agent/telemetry/genproto/ros/geometry_msgs"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/bluenviron/goroslib/v2"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"google.golang.org/protobuf/proto"
 )
@@ -22,10 +24,11 @@ const (
 
 type Receiver struct {
 	rmqConfig config.RMQConfig
+	rosConfig config.RosNodeConfig
 	config    config.RMQInboundReceiverConfig
 }
 
-func NewReceiver(rmqConfig config.RMQConfig, receiverConfig config.RMQInboundReceiverConfig) (*Receiver, error) {
+func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, receiverConfig config.RMQInboundReceiverConfig) (*Receiver, error) {
 	if receiverConfig.Name == "" {
 		return nil, fmt.Errorf("inbound receiver name is required")
 	}
@@ -38,24 +41,34 @@ func NewReceiver(rmqConfig config.RMQConfig, receiverConfig config.RMQInboundRec
 	if receiverConfig.MessageType != twistMessageType {
 		return nil, fmt.Errorf("inbound receiver %s unsupported message_type %q", receiverConfig.Name, receiverConfig.MessageType)
 	}
+	if receiverConfig.RosTopic == "" {
+		return nil, fmt.Errorf("inbound receiver %s ros_topic is required", receiverConfig.Name)
+	}
+	if rosConfig.Address == "" {
+		return nil, fmt.Errorf("inbound receiver %s ROS master address is required", receiverConfig.Name)
+	}
 	if receiverConfig.Consumer == "" {
 		receiverConfig.Consumer = receiverClientPrefix + receiverConfig.Name
+	}
+	if receiverConfig.RosNodeName == "" {
+		receiverConfig.RosNodeName = receiverConfig.Name + "_cmd_vel_publisher"
 	}
 
 	return &Receiver{
 		rmqConfig: rmqConfig,
+		rosConfig: rosConfig,
 		config:    receiverConfig,
 	}, nil
 }
 
-func StartEnabled(ctx context.Context, rmqConfig config.RMQConfig, inboundConfig config.RMQInboundConfig, wg *sync.WaitGroup) error {
+func StartEnabled(ctx context.Context, rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, inboundConfig config.RMQInboundConfig, wg *sync.WaitGroup) error {
 	started := 0
 	for _, receiverConfig := range inboundConfig.Receivers {
 		if !receiverConfig.Enabled {
 			continue
 		}
 
-		receiver, err := NewReceiver(rmqConfig, receiverConfig)
+		receiver, err := NewReceiver(rmqConfig, rosConfig, receiverConfig)
 		if err != nil {
 			return err
 		}
@@ -92,6 +105,12 @@ func (r *Receiver) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (r *Receiver) consume(ctx context.Context) error {
+	rosPub, err := r.newROSPublisher()
+	if err != nil {
+		return fmt.Errorf("create ROS publisher: %w", err)
+	}
+	defer rosPub.close()
+
 	conn, err := rmq.NewRabbitMQ(r.rmqConfig)
 	if err != nil {
 		return fmt.Errorf("connect RabbitMQ: %w", err)
@@ -103,12 +122,13 @@ func (r *Receiver) consume(ctx context.Context) error {
 	}
 
 	log.Printf(
-		"Starting inbound receiver %s: exchange=%q queue=%q consumer=%q message_type=%q auto_ack=%t",
+		"Starting inbound receiver %s: exchange=%q queue=%q consumer=%q message_type=%q ros_topic=%q auto_ack=%t",
 		r.config.Name,
 		r.config.Exchange,
 		r.config.Queue,
 		r.config.Consumer,
 		r.config.MessageType,
+		r.config.RosTopic,
 		r.config.AutoAck,
 	)
 
@@ -125,12 +145,12 @@ func (r *Receiver) consume(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("delivery stream closed for queue %s", r.config.Queue)
 			}
-			r.handleDelivery(delivery)
+			r.handleDelivery(delivery, rosPub)
 		}
 	}
 }
 
-func (r *Receiver) handleDelivery(delivery amqp.Delivery) {
+func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher) {
 	msg := &geometrymsgs.Twist{}
 	if err := proto.Unmarshal(delivery.Body, msg); err != nil {
 		log.Printf(
@@ -147,10 +167,15 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery) {
 
 	printTwist(r.config.Queue, delivery, msg)
 
-	// Future ROS publisher integration:
-	// 1. Convert proto geometry_msgs.Twist to telemetry/gengo/ros/geometry_msgs.Twist.
-	// 2. Publish it to the configured ROS topic.
-	// 3. Keep the Ack below after a successful ROS publish.
+	rosMsg := protoTwistToROS(msg)
+	rosPub.publish(rosMsg)
+	log.Printf(
+		"Published %s from queue=%q delivery_tag=%d to ROS topic=%q",
+		twistMessageType,
+		r.config.Queue,
+		delivery.DeliveryTag,
+		r.config.RosTopic,
+	)
 
 	if !r.config.AutoAck {
 		if err := delivery.Ack(false); err != nil {
@@ -162,6 +187,67 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery) {
 				err,
 			)
 		}
+	}
+}
+
+type twistPublisher struct {
+	node *goroslib.Node
+	pub  *goroslib.Publisher
+}
+
+func (r *Receiver) newROSPublisher() (*twistPublisher, error) {
+	node, err := goroslib.NewNode(goroslib.NodeConf{
+		Name:          r.config.RosNodeName,
+		MasterAddress: r.rosConfig.Address,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pub, err := goroslib.NewPublisher(goroslib.PublisherConf{
+		Node:  node,
+		Topic: r.config.RosTopic,
+		Msg:   &rosgeometrymsgs.Twist{},
+	})
+	if err != nil {
+		node.Close()
+		return nil, err
+	}
+
+	return &twistPublisher{
+		node: node,
+		pub:  pub,
+	}, nil
+}
+
+func (p *twistPublisher) publish(msg *rosgeometrymsgs.Twist) {
+	p.pub.Write(msg)
+}
+
+func (p *twistPublisher) close() {
+	if p.pub != nil {
+		p.pub.Close()
+	}
+	if p.node != nil {
+		p.node.Close()
+	}
+}
+
+func protoTwistToROS(msg *geometrymsgs.Twist) *rosgeometrymsgs.Twist {
+	linear := msg.GetLinear()
+	angular := msg.GetAngular()
+
+	return &rosgeometrymsgs.Twist{
+		Linear: rosgeometrymsgs.Vector3{
+			X: linear.GetX(),
+			Y: linear.GetY(),
+			Z: linear.GetZ(),
+		},
+		Angular: rosgeometrymsgs.Vector3{
+			X: angular.GetX(),
+			Y: angular.GetY(),
+			Z: angular.GetZ(),
+		},
 	}
 }
 
