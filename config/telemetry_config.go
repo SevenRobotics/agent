@@ -45,15 +45,16 @@ type RMQInboundConfig struct {
 }
 
 type RMQInboundReceiverConfig struct {
-	Name        string `yaml:"name"`
-	Enabled     bool   `yaml:"enabled"`
-	Exchange    string `yaml:"exchange"`
-	Queue       string `yaml:"queue"`
-	Consumer    string `yaml:"consumer"`
-	MessageType string `yaml:"message_type"`
-	AutoAck     bool   `yaml:"auto_ack"`
-	RosTopic    string `yaml:"ros_topic"`
-	RosNodeName string `yaml:"ros_node_name"`
+	Name                 string `yaml:"name"`
+	Enabled              bool   `yaml:"enabled"`
+	Exchange             string `yaml:"exchange"`
+	Queue                string `yaml:"queue"`
+	Consumer             string `yaml:"consumer"`
+	MessageType          string `yaml:"message_type"`
+	AutoAck              bool   `yaml:"auto_ack"`
+	RosTopic             string `yaml:"ros_topic"`
+	RosNodeName          string `yaml:"ros_node_name"`
+	WaitForRosSubscriber string `yaml:"wait_for_ros_subscriber"`
 }
 
 type TelemetryTopicsConfig struct {

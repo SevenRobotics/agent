@@ -8,10 +8,13 @@ import (
 	rosgeometrymsgs "go_agent/telemetry/gengo/ros/geometry_msgs"
 	geometrymsgs "go_agent/telemetry/genproto/ros/geometry_msgs"
 	"log"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bluenviron/goroslib/v2"
+	"github.com/bluenviron/goroslib/v2/pkg/apimaster"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"google.golang.org/protobuf/proto"
 )
@@ -19,6 +22,7 @@ import (
 const (
 	twistMessageType     = "geometry_msgs/Twist"
 	consumerRetryDelay   = 5 * time.Second
+	rosStatePollInterval = 1 * time.Second
 	receiverClientPrefix = "inbound-"
 )
 
@@ -52,6 +56,9 @@ func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, rec
 	}
 	if receiverConfig.RosNodeName == "" {
 		receiverConfig.RosNodeName = receiverConfig.Name + "_cmd_vel_publisher"
+	}
+	if receiverConfig.WaitForRosSubscriber == "" {
+		receiverConfig.WaitForRosSubscriber = expectedTelemetrySubscriberNode(receiverConfig.RosTopic)
 	}
 
 	return &Receiver{
@@ -105,6 +112,10 @@ func (r *Receiver) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (r *Receiver) consume(ctx context.Context) error {
+	if err := r.waitForROSSubscriber(ctx); err != nil {
+		return err
+	}
+
 	rosPub, err := r.newROSPublisher()
 	if err != nil {
 		return fmt.Errorf("create ROS publisher: %w", err)
@@ -188,6 +199,81 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher
 			)
 		}
 	}
+}
+
+func (r *Receiver) waitForROSSubscriber(ctx context.Context) error {
+	if r.config.WaitForRosSubscriber == "" {
+		return nil
+	}
+
+	client := apimaster.NewClient(r.rosConfig.Address, r.config.RosNodeName, &http.Client{})
+	ticker := time.NewTicker(rosStatePollInterval)
+	defer ticker.Stop()
+
+	for {
+		ready, err := hasTopicSubscriber(client, r.config.RosTopic, r.config.WaitForRosSubscriber)
+		if err != nil {
+			return fmt.Errorf("check ROS subscriber %s for topic %s: %w", r.config.WaitForRosSubscriber, r.config.RosTopic, err)
+		}
+		if ready {
+			return nil
+		}
+
+		log.Printf(
+			"Inbound receiver %s waiting for ROS subscriber %q on topic %q before publishing",
+			r.config.Name,
+			r.config.WaitForRosSubscriber,
+			r.config.RosTopic,
+		)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func hasTopicSubscriber(client *apimaster.Client, topic string, subscriberName string) (bool, error) {
+	state, err := client.GetSystemState()
+	if err != nil {
+		return false, err
+	}
+
+	for _, sub := range state.SubscribedTopics {
+		if sub.Name != topic {
+			continue
+		}
+		for _, node := range sub.Nodes {
+			if sameROSName(node, subscriberName) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func expectedTelemetrySubscriberNode(topic string) string {
+	nodeName := strings.Trim(strings.TrimSpace(topic), "/")
+	nodeName = strings.ReplaceAll(nodeName, "/", "_")
+	nodeName = strings.ReplaceAll(nodeName, ".", "_")
+	if nodeName == "" {
+		return ""
+	}
+	return "/" + nodeName + "_node"
+}
+
+func sameROSName(left string, right string) bool {
+	return normalizeROSName(left) == normalizeROSName(right)
+}
+
+func normalizeROSName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" || strings.HasPrefix(name, "/") {
+		return name
+	}
+	return "/" + name
 }
 
 type twistPublisher struct {

@@ -8,3 +8,4 @@ receivers:
     auto_ack: false
     ros_topic: "/cmd_vel"
     ros_node_name: "joystick_cmd_vel_publisher"
+    wait_for_ros_subscriber: "/cmd_vel_node"
