@@ -110,7 +110,11 @@ func main() {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
-	topicList := []string{"/odom_with_amcl"}
+	topicList := []string{"/odom_with_amcl",
+"/cmd_vel","/cmd_vel_filtered",
+"/move_base_flex_SmacLattice_unsmoothed_plan",
+"/move_base_flex_TebLocalPlannerROS_global_plan","/task_feedback",
+"/uavcanRosBridge/uavcan_ros_bridge/Battery"}
 
 	// conn, err := rmq.NewRabbitMQ(rmq_config)
 
