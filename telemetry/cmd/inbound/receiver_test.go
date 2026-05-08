@@ -110,6 +110,9 @@ func TestReceiverDoesNotContainVerboseReceiveLog(t *testing.T) {
 	if strings.Contains(source, "Received %s queue=") {
 		t.Fatal("receiver still contains verbose received-data log")
 	}
+	if strings.Contains(source, "Published %s from queue=") {
+		t.Fatal("receiver still contains verbose published-data log")
+	}
 }
 
 func TestUniqueROSNodeNameKeepsConfiguredBaseAndAddsProcessSuffix(t *testing.T) {

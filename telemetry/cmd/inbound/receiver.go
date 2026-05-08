@@ -193,13 +193,6 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher
 
 	rosMsg := protoTwistToROS(msg)
 	rosPub.publish(rosMsg)
-	log.Printf(
-		"Published %s from queue=%q delivery_tag=%d to ROS topic=%q",
-		twistMessageType,
-		r.config.Queue,
-		delivery.DeliveryTag,
-		r.config.RosTopic,
-	)
 
 	if !r.config.AutoAck {
 		if err := delivery.Ack(false); err != nil {
