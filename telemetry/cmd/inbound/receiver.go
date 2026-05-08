@@ -9,6 +9,8 @@ import (
 	geometrymsgs "go_agent/telemetry/genproto/ros/geometry_msgs"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -369,8 +371,9 @@ type twistPublisher struct {
 }
 
 func (r *Receiver) newROSPublisher() (*twistPublisher, error) {
+	nodeName := uniqueROSNodeName(r.config.RosNodeName)
 	node, err := goroslib.NewNode(goroslib.NodeConf{
-		Name:          r.config.RosNodeName,
+		Name:          nodeName,
 		MasterAddress: r.rosConfig.Address,
 	})
 	if err != nil {
@@ -391,6 +394,53 @@ func (r *Receiver) newROSPublisher() (*twistPublisher, error) {
 		node: node,
 		pub:  pub,
 	}, nil
+}
+
+func uniqueROSNodeName(base string) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		base = "inbound_cmd_vel_publisher"
+	}
+
+	host, err := os.Hostname()
+	if err != nil || strings.TrimSpace(host) == "" {
+		host = "host"
+	}
+
+	suffix := sanitizeROSNameToken(host) + "_" + strconv.Itoa(os.Getpid())
+	return strings.TrimRight(base, "_") + "_" + suffix
+}
+
+func sanitizeROSNameToken(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "node"
+	}
+
+	var builder strings.Builder
+	lastWasUnderscore := false
+	for _, char := range value {
+		valid := (char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9')
+
+		if valid {
+			builder.WriteRune(char)
+			lastWasUnderscore = false
+			continue
+		}
+
+		if !lastWasUnderscore {
+			builder.WriteByte('_')
+			lastWasUnderscore = true
+		}
+	}
+
+	token := strings.Trim(builder.String(), "_")
+	if token == "" {
+		return "node"
+	}
+	return token
 }
 
 func (p *twistPublisher) publish(msg *rosgeometrymsgs.Twist) {

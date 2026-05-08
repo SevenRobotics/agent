@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -108,5 +109,25 @@ func TestReceiverDoesNotContainVerboseReceiveLog(t *testing.T) {
 	}
 	if strings.Contains(source, "Received %s queue=") {
 		t.Fatal("receiver still contains verbose received-data log")
+	}
+}
+
+func TestUniqueROSNodeNameKeepsConfiguredBaseAndAddsProcessSuffix(t *testing.T) {
+	nodeName := uniqueROSNodeName("joystick_cmd_vel_publisher")
+
+	if !strings.HasPrefix(nodeName, "joystick_cmd_vel_publisher_") {
+		t.Fatalf("expected configured base prefix, got %q", nodeName)
+	}
+	if !strings.HasSuffix(nodeName, "_"+strconv.Itoa(os.Getpid())) {
+		t.Fatalf("expected pid suffix, got %q", nodeName)
+	}
+}
+
+func TestSanitizeROSNameTokenReplacesInvalidCharacters(t *testing.T) {
+	got := sanitizeROSNameToken("robot-01.local / inbound")
+	want := "robot_01_local_inbound"
+
+	if got != want {
+		t.Fatalf("sanitizeROSNameToken() = %q, want %q", got, want)
 	}
 }
