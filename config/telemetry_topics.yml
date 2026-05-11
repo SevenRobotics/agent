@@ -1,6 +1,7 @@
 topics:
   - "/odom_with_amcl"
   - "/cmd_vel"
+  - "/internet_info"
   - "/cmd_vel_filtered"
   - "/move_base_flex_SmacLattice_unsmoothed_plan"
   - "/move_base_flex_TebLocalPlannerROS_global_plan"
