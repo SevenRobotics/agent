@@ -5,6 +5,7 @@ import (
 	"go_agent/config"
 	"go_agent/telemetry/cmd/channel"
 	"go_agent/telemetry/cmd/inbound"
+	"go_agent/telemetry/cmd/startup"
 	"go_agent/telemetry/gengo/ros/converter"
 	"go_agent/utils"
 	"io/fs"
@@ -53,6 +54,8 @@ func main() {
 	basepath := filepath.Dir(b)
 
 	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	rosGoDir := filepath.Join(basepath, g.ProtoDir)
 	var pkgname string
@@ -107,9 +110,6 @@ func main() {
 		log.Fatalf("Error decoding Inbound RMQ Config from %s: %v", config_path, err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	config_path = filepath.Join(basepath, g.ConfigDir, "telemetry_node.yml")
 	nf, err := os.Open(config_path)
 	if err != nil {
@@ -125,13 +125,38 @@ func main() {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
 	}
 
+	config_path = filepath.Join(basepath, g.ConfigDir, "startup_processes.yml")
+	startupFile, err := os.Open(config_path)
+	if err != nil {
+		log.Fatalf("Startup processes configuration not found @ %s: %v", config_path, err)
+	}
+	defer startupFile.Close()
+
+	var startupConfig config.StartupProcessesConfig
+	startupDecoder := yaml.NewDecoder(startupFile)
+
+	err = startupDecoder.Decode(&startupConfig)
+	if err != nil {
+		log.Fatalf("Error decoding startup processes config from %s: %v", config_path, err)
+	}
+
+	if _, err := startup.StartEnabled(ctx, startupConfig, &wg); err != nil {
+		cancel()
+		wg.Wait()
+		log.Fatalf("Failed to start required startup process: %v", err)
+	}
+
 	if err := inbound.StartEnabled(ctx, rmq_config, node_config, inboundConfig, &wg); err != nil {
+		cancel()
+		wg.Wait()
 		log.Fatalf("Failed to start inbound RMQ receivers: %v", err)
 	}
 
 	config_path = filepath.Join(basepath, g.ConfigDir, "telemetry_topics.yml")
 	topicsFile, err := os.Open(config_path)
 	if err != nil {
+		cancel()
+		wg.Wait()
 		log.Fatalf("Telemetry topics configuration not found @ %s: %v", config_path, err)
 	}
 	defer topicsFile.Close()
@@ -141,21 +166,28 @@ func main() {
 
 	err = topicsDecoder.Decode(&topicsConfig)
 	if err != nil {
+		cancel()
+		wg.Wait()
 		log.Fatalf("Error decoding telemetry topics config from %s: %v", config_path, err)
 	}
 
 	if len(topicsConfig.Topics) == 0 {
+		cancel()
+		wg.Wait()
 		log.Fatalf("No telemetry topics configured in %s", config_path)
 	}
 
 	conductor, err := channel.NewConductor(rmq_config, node_config)
 	if err != nil {
+		cancel()
+		wg.Wait()
 		log.Fatalf("New Conductor Could not be created: %v", err)
 	}
 
 	err = conductor.Start(&genState, topicsConfig.Topics)
 	if err != nil {
 		cancel()
+		wg.Wait()
 		log.Fatalf("Conductor Failed: %v", err)
 	}
 
