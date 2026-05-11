@@ -60,16 +60,3 @@ type RMQInboundReceiverConfig struct {
 type TelemetryTopicsConfig struct {
 	Topics []string `yaml:"topics"`
 }
-
-type StartupProcessesConfig struct {
-	Processes []StartupProcessConfig `yaml:"processes"`
-}
-
-type StartupProcessConfig struct {
-	Name       string   `yaml:"name"`
-	Enabled    bool     `yaml:"enabled"`
-	Command    string   `yaml:"command"`
-	Args       []string `yaml:"args"`
-	WorkingDir string   `yaml:"working_dir"`
-	Required   bool     `yaml:"required"`
-}

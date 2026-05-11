@@ -5,7 +5,6 @@ import (
 	"go_agent/config"
 	"go_agent/telemetry/cmd/channel"
 	"go_agent/telemetry/cmd/inbound"
-	"go_agent/telemetry/cmd/startup"
 	"go_agent/telemetry/gengo/ros/converter"
 	"go_agent/utils"
 	"io/fs"
@@ -123,27 +122,6 @@ func main() {
 	err = nodeDecoder.Decode(&node_config)
 	if err != nil {
 		log.Fatalf("Error decoding Node Config from %s: %v", config_path, err)
-	}
-
-	config_path = filepath.Join(basepath, g.ConfigDir, "startup_processes.yml")
-	startupFile, err := os.Open(config_path)
-	if err != nil {
-		log.Fatalf("Startup processes configuration not found @ %s: %v", config_path, err)
-	}
-	defer startupFile.Close()
-
-	var startupConfig config.StartupProcessesConfig
-	startupDecoder := yaml.NewDecoder(startupFile)
-
-	err = startupDecoder.Decode(&startupConfig)
-	if err != nil {
-		log.Fatalf("Error decoding startup processes config from %s: %v", config_path, err)
-	}
-
-	if _, err := startup.StartEnabled(ctx, startupConfig, &wg); err != nil {
-		cancel()
-		wg.Wait()
-		log.Fatalf("Failed to start required startup process: %v", err)
 	}
 
 	if err := inbound.StartEnabled(ctx, rmq_config, node_config, inboundConfig, &wg); err != nil {

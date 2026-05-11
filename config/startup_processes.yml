@@ -1,9 +1,0 @@
-processes:
-  - name: "ros_image_to_webrtc"
-    enabled: true
-    command: "python"
-    args:
-      - "/home/seven-robot-1/ros-to-webrtc/os_image_to_webrtc.py"
-      - "/camera/color/image_raw"
-      - "ws://18.61.78.96:8443"
-    required: true
