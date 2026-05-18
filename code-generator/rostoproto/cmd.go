@@ -42,7 +42,7 @@ func NewGen() *GeneratorUtil {
 	rosSubOutputDir := "../../subscribers/ros/"
 	goOutputDir := "../../telemetry/gengo/ros/"
 	converterDir := "../../telemetry/cmd/channel/"
-	blacklist := []string{"turtlesim","firebase_data_retrieve", "tf","gazebo_video_monitor_msgs","dm-vio-ros-live","object_recognition_msgs","geographic_msgs","rosserial_msgs","foxglove_msgs","aruco_msgs","seven_robot_perception","rtabmap_ros","obstacle_detector","mask_rcnn_ros","costmap_2d","sick_scan","apriltag_ros","teb_local_planner","costmap_converter","control_msgs","gazebo_msgs","ar_track_alvar_msgs","graph_msgs","map_msgs","move_base_msgs","octomap_msgs","pcl_msgs","people_msgs","shape_msgs","stereo_msgs","tf2_msgs","trajectory_msgs","turtlebot3_example","visualization_msgs"}
+	blacklist := []string{"turtlesim", "firebase_data_retrieve", "tf", "gazebo_video_monitor_msgs", "dm-vio-ros-live", "object_recognition_msgs", "geographic_msgs", "rosserial_msgs", "foxglove_msgs", "aruco_msgs", "seven_robot_perception", "rtabmap_ros", "obstacle_detector", "mask_rcnn_ros", "costmap_2d", "sick_scan", "apriltag_ros", "teb_local_planner", "costmap_converter", "control_msgs", "gazebo_msgs", "ar_track_alvar_msgs", "graph_msgs", "map_msgs", "move_base_msgs", "octomap_msgs", "pcl_msgs", "people_msgs", "shape_msgs", "stereo_msgs", "tf2_msgs", "trajectory_msgs", "turtlebot3_example", "visualization_msgs"}
 	return &GeneratorUtil{
 		OutputDir:       defaultOutputDir,
 		ProtoDir:        relativeProtoDir,
@@ -225,6 +225,10 @@ func Run(g *GeneratorUtil, genState *utils.GeneratorState, wg *sync.WaitGroup) {
 		goDir := filepath.Join(basepath, g.GoDir, pkg.Name)
 		subDir := filepath.Join(basepath, g.RosSubOutputDir, pkg.Name)
 
+		if pkg.Name == "seven_robotics_msgs" {
+			cleanGeneratedPackageDirs(dir, goDir, subDir, filepath.Join(basepath, g.OutputDir, pkg.Name))
+		}
+
 		err = rostogo.ImportPackage(input, goDir)
 		if err != nil {
 			log.Fatalf("Failed to import ros package %s: %v", pkg.Name, err)
@@ -382,6 +386,17 @@ func Run(g *GeneratorUtil, genState *utils.GeneratorState, wg *sync.WaitGroup) {
 	}
 
 	return
+}
+
+func cleanGeneratedPackageDirs(paths ...string) {
+	for _, path := range paths {
+		if err := os.RemoveAll(path); err != nil {
+			log.Fatalf("failed to clean generated package dir %s: %v", path, err)
+		}
+		if err := os.MkdirAll(path, 0755); err != nil {
+			log.Fatalf("failed to recreate generated package dir %s: %v", path, err)
+		}
+	}
 }
 
 // a from -> to dependency relationship in an import graph

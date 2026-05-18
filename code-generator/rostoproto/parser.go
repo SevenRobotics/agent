@@ -156,6 +156,9 @@ func (p *Parser) load(pkgPath string) (*Package, error) {
 		}
 		if filepath.Ext(d.Name()) == ".msg" {
 			name := strings.TrimSuffix(filepath.Base(path), ".msg")
+			if pkgname == "seven_robotics_msgs" && name != "Battery" {
+				return nil
+			}
 			buf, err := os.ReadFile(path)
 
 			if err != nil {

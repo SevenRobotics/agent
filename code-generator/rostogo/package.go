@@ -16,12 +16,12 @@ func ImportPackage(pkgDir string, outputDir string) error {
 		log.Fatalf("Failed to create output directory %s: %v", outputDir, err)
 	}
 	if pkgName == "seven_robotics_msgs" {
-		return importPackageWithoutActions(pkgName, pkgDir, outputDir)
+		return importSevenRoboticsMsgs(pkgName, pkgDir, outputDir)
 	}
 	return conversion.ImportPackage(pkgName, pkgDir, outputDir)
 }
 
-func importPackageWithoutActions(pkgName string, pkgDir string, outputDir string) error {
+func importSevenRoboticsMsgs(pkgName string, pkgDir string, outputDir string) error {
 	if err := writePackageFile(pkgName, outputDir); err != nil {
 		return err
 	}
@@ -39,6 +39,9 @@ func importPackageWithoutActions(pkgName string, pkgDir string, outputDir string
 
 		switch filepath.Ext(d.Name()) {
 		case ".msg":
+			if strings.TrimSuffix(d.Name(), ".msg") != "Battery" {
+				return nil
+			}
 			outpath := filepath.Join(outputDir, "msg_"+strings.TrimSuffix(strings.ToLower(d.Name()), ".msg")+".go")
 			f, err := os.Create(outpath)
 			if err != nil {
@@ -46,17 +49,6 @@ func importPackageWithoutActions(pkgName string, pkgDir string, outputDir string
 			}
 			defer f.Close()
 			if err := conversion.ImportMessage(path, pkgName, pkgName, f); err != nil {
-				os.Remove(outpath)
-				return err
-			}
-		case ".srv":
-			outpath := filepath.Join(outputDir, "srv_"+strings.TrimSuffix(strings.ToLower(d.Name()), ".srv")+".go")
-			f, err := os.Create(outpath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			if err := conversion.ImportService(path, pkgName, pkgName, f); err != nil {
 				os.Remove(outpath)
 				return err
 			}
