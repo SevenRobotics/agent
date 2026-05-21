@@ -171,6 +171,52 @@ func TestNewReceiverValidation(t *testing.T) {
 		}
 	})
 
+	t.Run("wait_for_ros_subscriber defaults and bypasses", func(t *testing.T) {
+		cfgDefault := config.RMQInboundReceiverConfig{
+			Name:        "test-default-wait",
+			Queue:       "test-q",
+			MessageType: "std_msgs/String",
+			RosTopic:    "/tasks",
+		}
+		rDefault, err := NewReceiver(rmqConfig, rosConfig, cfgDefault)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rDefault.config.WaitForRosSubscriber != "/tasks_node" {
+			t.Fatalf("expected default WaitForRosSubscriber to be /tasks_node, got %q", rDefault.config.WaitForRosSubscriber)
+		}
+
+		cfgNone := config.RMQInboundReceiverConfig{
+			Name:                 "test-none-wait",
+			Queue:                "test-q",
+			MessageType:          "std_msgs/String",
+			RosTopic:             "/tasks",
+			WaitForRosSubscriber: "none",
+		}
+		rNone, err := NewReceiver(rmqConfig, rosConfig, cfgNone)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rNone.config.WaitForRosSubscriber != "" {
+			t.Fatalf("expected WaitForRosSubscriber to be empty for 'none', got %q", rNone.config.WaitForRosSubscriber)
+		}
+
+		cfgDisabled := config.RMQInboundReceiverConfig{
+			Name:                 "test-disabled-wait",
+			Queue:                "test-q",
+			MessageType:          "std_msgs/String",
+			RosTopic:             "/tasks",
+			WaitForRosSubscriber: "disabled",
+		}
+		rDisabled, err := NewReceiver(rmqConfig, rosConfig, cfgDisabled)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rDisabled.config.WaitForRosSubscriber != "" {
+			t.Fatalf("expected WaitForRosSubscriber to be empty for 'disabled', got %q", rDisabled.config.WaitForRosSubscriber)
+		}
+	})
+
 	// Invalid case
 	t.Run("invalid type", func(t *testing.T) {
 		cfg := config.RMQInboundReceiverConfig{

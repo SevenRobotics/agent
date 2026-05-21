@@ -18,4 +18,4 @@ receivers:
     auto_ack: false
     ros_topic: "/tasks"
     ros_node_name: "tasks_publisher"
-    wait_for_ros_subscriber: ""
+    wait_for_ros_subscriber: "none"

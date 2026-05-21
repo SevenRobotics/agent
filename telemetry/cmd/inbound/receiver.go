@@ -73,7 +73,9 @@ func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, rec
 			receiverConfig.RosNodeName = receiverConfig.Name + "_publisher"
 		}
 	}
-	if receiverConfig.WaitForRosSubscriber == "" {
+	if receiverConfig.WaitForRosSubscriber == "none" || receiverConfig.WaitForRosSubscriber == "disabled" {
+		receiverConfig.WaitForRosSubscriber = ""
+	} else if receiverConfig.WaitForRosSubscriber == "" {
 		receiverConfig.WaitForRosSubscriber = expectedTelemetrySubscriberNode(receiverConfig.RosTopic)
 	}
 
