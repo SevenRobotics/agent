@@ -6,6 +6,7 @@ import (
 	"go_agent/config"
 	"go_agent/publishers/rmq"
 	rosgeometrymsgs "go_agent/telemetry/gengo/ros/geometry_msgs"
+	rosstdmsgs "go_agent/telemetry/gengo/ros/std_msgs"
 	geometrymsgs "go_agent/telemetry/genproto/ros/geometry_msgs"
 	"log"
 	"net/http"
@@ -23,10 +24,16 @@ import (
 
 const (
 	twistMessageType     = "geometry_msgs/Twist"
+	stringMessageType    = "std_msgs/String"
 	consumerRetryDelay   = 5 * time.Second
 	rosStatePollInterval = 1 * time.Second
 	receiverClientPrefix = "inbound-"
 )
+
+type rosPublisher interface {
+	publish(body []byte) error
+	close()
+}
 
 type Receiver struct {
 	rmqConfig config.RMQConfig
@@ -47,7 +54,7 @@ func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, rec
 	if receiverConfig.MessageType == "" {
 		return nil, fmt.Errorf("inbound receiver %s message_type is required", receiverConfig.Name)
 	}
-	if receiverConfig.MessageType != twistMessageType {
+	if receiverConfig.MessageType != twistMessageType && receiverConfig.MessageType != stringMessageType {
 		return nil, fmt.Errorf("inbound receiver %s unsupported message_type %q", receiverConfig.Name, receiverConfig.MessageType)
 	}
 	if receiverConfig.RosTopic == "" {
@@ -60,7 +67,11 @@ func NewReceiver(rmqConfig config.RMQConfig, rosConfig config.RosNodeConfig, rec
 		receiverConfig.Consumer = receiverClientPrefix + receiverConfig.Name
 	}
 	if receiverConfig.RosNodeName == "" {
-		receiverConfig.RosNodeName = receiverConfig.Name + "_cmd_vel_publisher"
+		if receiverConfig.MessageType == twistMessageType {
+			receiverConfig.RosNodeName = receiverConfig.Name + "_cmd_vel_publisher"
+		} else {
+			receiverConfig.RosNodeName = receiverConfig.Name + "_publisher"
+		}
 	}
 	if receiverConfig.WaitForRosSubscriber == "" {
 		receiverConfig.WaitForRosSubscriber = expectedTelemetrySubscriberNode(receiverConfig.RosTopic)
@@ -176,11 +187,10 @@ func (r *Receiver) consume(ctx context.Context) error {
 	}
 }
 
-func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher) {
-	msg := &geometrymsgs.Twist{}
-	if err := proto.Unmarshal(delivery.Body, msg); err != nil {
+func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub rosPublisher) {
+	if err := rosPub.publish(delivery.Body); err != nil {
 		log.Printf(
-			"Inbound receiver %s failed to deserialize %s from queue=%q delivery_tag=%d: %v",
+			"Inbound receiver %s failed to publish %s from queue=%q delivery_tag=%d: %v",
 			r.config.Name,
 			r.config.MessageType,
 			r.config.Queue,
@@ -190,9 +200,6 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub *twistPublisher
 		r.rejectMalformed(delivery)
 		return
 	}
-
-	rosMsg := protoTwistToROS(msg)
-	rosPub.publish(rosMsg)
 
 	if !r.config.AutoAck {
 		if err := delivery.Ack(false); err != nil {
@@ -363,7 +370,12 @@ type twistPublisher struct {
 	pub  *goroslib.Publisher
 }
 
-func (r *Receiver) newROSPublisher() (*twistPublisher, error) {
+type stringPublisher struct {
+	node *goroslib.Node
+	pub  *goroslib.Publisher
+}
+
+func (r *Receiver) newROSPublisher() (rosPublisher, error) {
 	nodeName := uniqueROSNodeName(r.config.RosNodeName)
 	node, err := goroslib.NewNode(goroslib.NodeConf{
 		Name:          nodeName,
@@ -373,20 +385,41 @@ func (r *Receiver) newROSPublisher() (*twistPublisher, error) {
 		return nil, err
 	}
 
-	pub, err := goroslib.NewPublisher(goroslib.PublisherConf{
-		Node:  node,
-		Topic: r.config.RosTopic,
-		Msg:   &rosgeometrymsgs.Twist{},
-	})
-	if err != nil {
-		node.Close()
-		return nil, err
-	}
+	switch r.config.MessageType {
+	case twistMessageType:
+		pub, err := goroslib.NewPublisher(goroslib.PublisherConf{
+			Node:  node,
+			Topic: r.config.RosTopic,
+			Msg:   &rosgeometrymsgs.Twist{},
+		})
+		if err != nil {
+			node.Close()
+			return nil, err
+		}
+		return &twistPublisher{
+			node: node,
+			pub:  pub,
+		}, nil
 
-	return &twistPublisher{
-		node: node,
-		pub:  pub,
-	}, nil
+	case stringMessageType:
+		pub, err := goroslib.NewPublisher(goroslib.PublisherConf{
+			Node:  node,
+			Topic: r.config.RosTopic,
+			Msg:   &rosstdmsgs.String{},
+		})
+		if err != nil {
+			node.Close()
+			return nil, err
+		}
+		return &stringPublisher{
+			node: node,
+			pub:  pub,
+		}, nil
+
+	default:
+		node.Close()
+		return nil, fmt.Errorf("unsupported message type: %s", r.config.MessageType)
+	}
 }
 
 func uniqueROSNodeName(base string) string {
@@ -436,11 +469,34 @@ func sanitizeROSNameToken(value string) string {
 	return token
 }
 
-func (p *twistPublisher) publish(msg *rosgeometrymsgs.Twist) {
-	p.pub.Write(msg)
+func (p *twistPublisher) publish(body []byte) error {
+	msg := &geometrymsgs.Twist{}
+	if err := proto.Unmarshal(body, msg); err != nil {
+		return err
+	}
+	rosMsg := protoTwistToROS(msg)
+	p.pub.Write(rosMsg)
+	return nil
 }
 
 func (p *twistPublisher) close() {
+	if p.pub != nil {
+		p.pub.Close()
+	}
+	if p.node != nil {
+		p.node.Close()
+	}
+}
+
+func (p *stringPublisher) publish(body []byte) error {
+	rosMsg := &rosstdmsgs.String{
+		Data: string(body),
+	}
+	p.pub.Write(rosMsg)
+	return nil
+}
+
+func (p *stringPublisher) close() {
 	if p.pub != nil {
 		p.pub.Close()
 	}

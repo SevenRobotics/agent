@@ -134,3 +134,54 @@ func TestSanitizeROSNameTokenReplacesInvalidCharacters(t *testing.T) {
 		t.Fatalf("sanitizeROSNameToken() = %q, want %q", got, want)
 	}
 }
+
+func TestNewReceiverValidation(t *testing.T) {
+	rmqConfig := config.RMQConfig{}
+	rosConfig := config.RosNodeConfig{
+		Address: "localhost:11311",
+	}
+
+	// Valid cases
+	t.Run("valid twist", func(t *testing.T) {
+		cfg := config.RMQInboundReceiverConfig{
+			Name:        "test-twist",
+			Queue:       "test-q",
+			MessageType: "geometry_msgs/Twist",
+			RosTopic:    "/cmd_vel",
+		}
+		_, err := NewReceiver(rmqConfig, rosConfig, cfg)
+		if err != nil {
+			t.Fatalf("unexpected error for twist message type: %v", err)
+		}
+	})
+
+	t.Run("valid string", func(t *testing.T) {
+		cfg := config.RMQInboundReceiverConfig{
+			Name:        "test-string",
+			Queue:       "test-q",
+			MessageType: "std_msgs/String",
+			RosTopic:    "/tasks",
+		}
+		r, err := NewReceiver(rmqConfig, rosConfig, cfg)
+		if err != nil {
+			t.Fatalf("unexpected error for string message type: %v", err)
+		}
+		if r.config.RosNodeName != "test-string_publisher" {
+			t.Fatalf("expected RosNodeName %q, got %q", "test-string_publisher", r.config.RosNodeName)
+		}
+	})
+
+	// Invalid case
+	t.Run("invalid type", func(t *testing.T) {
+		cfg := config.RMQInboundReceiverConfig{
+			Name:        "test-invalid",
+			Queue:       "test-q",
+			MessageType: "invalid_msgs/Custom",
+			RosTopic:    "/custom",
+		}
+		_, err := NewReceiver(rmqConfig, rosConfig, cfg)
+		if err == nil {
+			t.Fatal("expected error for unsupported message type, got nil")
+		}
+	})
+}

@@ -9,3 +9,13 @@ receivers:
     ros_topic: "/cmd_vel"
     ros_node_name: "joystick_cmd_vel_publisher"
     wait_for_ros_subscriber: "/cmd_vel_node"
+  - name: "tasks"
+    enabled: true
+    exchange: ""
+    queue: "robot-tasks-queue"
+    consumer: "agent-tasks"
+    message_type: "std_msgs/String"
+    auto_ack: false
+    ros_topic: "/tasks"
+    ros_node_name: "tasks_publisher"
+    wait_for_ros_subscriber: ""
