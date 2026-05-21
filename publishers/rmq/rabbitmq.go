@@ -20,10 +20,12 @@ type RabbitMQMaster interface {
 	NewClient(name string) (RabbitClient, error)
 	RemoveClient(name string) error
 	Close() error
+	IsConnected() bool
 }
 
 type RabbitClient interface {
 	Close() error
+	IsReady() bool
 	NewExchangeDeclare(exchangeName, kind string, durable, autodelete bool) error
 	NewQueueDeclare(queueName string, durable, autodelete bool) error
 	CreateBinding(name string, binding string, exchange string) error
@@ -54,6 +56,12 @@ func (r *rabbitMQ) Connect() (*rabbitMQ, error) {
 	}
 	go r.monitorConnection()
 	return r, nil
+}
+
+func (r *rabbitMQ) IsConnected() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.conn != nil && !r.conn.IsClosed()
 }
 
 func (r *rabbitMQ) dial() error {
@@ -185,7 +193,7 @@ func (r *rabbitMQ) monitorChannel(name string, client *rabbitClient) {
 	}
 
 	log.Printf("RMQ channel lost for client %s: %v. Attempting to recreate channel...", name, err)
-	
+
 	// Check if the connection is still alive. If it is, just recreate the channel.
 	// If the connection is dead, the connection monitor will handle it.
 	r.mu.RLock()
@@ -269,10 +277,13 @@ func (r *rabbitMQ) NewClient(name string) (*rabbitClient, error) {
 		r.mu.Unlock()
 		// Ensure the existing client has a valid channel
 		r.recreateClientChannel(name, client)
+		if !client.IsReady() {
+			return nil, fmt.Errorf("rabbitmq client %s channel is not available", name)
+		}
 		return client, nil
 	}
 
-	if r.conn == nil {
+	if r.conn == nil || r.conn.IsClosed() {
 		r.mu.Unlock()
 		return nil, fmt.Errorf("Cannot add clients to an uninitialized RMQ Connection")
 	}
@@ -318,9 +329,18 @@ func (rc *rabbitClient) Close() error {
 	return nil
 }
 
+func (rc *rabbitClient) IsReady() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	return rc.ch != nil && !rc.ch.IsClosed()
+}
+
 func (rc *rabbitClient) NewExchangeDeclare(exchangeName, kind string, durable, autodelete bool) error {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
+	if rc.ch == nil || rc.ch.IsClosed() {
+		return fmt.Errorf("rabbitmq channel is not available")
+	}
 	err := rc.ch.ExchangeDeclare(exchangeName, kind, durable, autodelete, false, false, nil)
 	return err
 }
@@ -328,6 +348,9 @@ func (rc *rabbitClient) NewExchangeDeclare(exchangeName, kind string, durable, a
 func (rc *rabbitClient) NewQueueDeclare(queueName string, durable, autodelete bool) error {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
+	if rc.ch == nil || rc.ch.IsClosed() {
+		return fmt.Errorf("rabbitmq channel is not available")
+	}
 	_, err := rc.ch.QueueDeclare(queueName, durable, autodelete, false, false, nil)
 	return err
 }
@@ -335,17 +358,26 @@ func (rc *rabbitClient) NewQueueDeclare(queueName string, durable, autodelete bo
 func (rc *rabbitClient) CreateBinding(name string, binding string, exchange string) error {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
+	if rc.ch == nil || rc.ch.IsClosed() {
+		return fmt.Errorf("rabbitmq channel is not available")
+	}
 	return rc.ch.QueueBind(name, binding, exchange, false, nil)
 }
 
 func (rc *rabbitClient) Send(ctx context.Context, exchange, routingKey string, options amqp.Publishing) error {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
+	if rc.ch == nil || rc.ch.IsClosed() {
+		return fmt.Errorf("rabbitmq channel is not available")
+	}
 	return rc.ch.PublishWithContext(ctx, exchange, routingKey, true, false, options)
 }
 
 func (rc *rabbitClient) Receive(ctx context.Context, queue, consumer string, autoAck bool) (<-chan amqp.Delivery, error) {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
+	if rc.ch == nil || rc.ch.IsClosed() {
+		return nil, fmt.Errorf("rabbitmq channel is not available")
+	}
 	return rc.ch.ConsumeWithContext(ctx, queue, consumer, autoAck, false, false, false, nil)
 }

@@ -243,10 +243,6 @@ func (r *Receiver) waitForROSSubscriber(ctx context.Context) error {
 
 func (r *Receiver) monitorROSSubscriber(ctx context.Context) <-chan error {
 	monitorErr := make(chan error, 1)
-	if r.config.WaitForRosSubscriber == "" {
-		close(monitorErr)
-		return monitorErr
-	}
 
 	go func() {
 		defer close(monitorErr)
@@ -264,6 +260,13 @@ func (r *Receiver) monitorROSSubscriber(ctx context.Context) <-chan error {
 			ready, err := r.isROSSubscriberReady(ctx)
 			if ctx.Err() != nil {
 				return
+			}
+			if r.config.WaitForRosSubscriber == "" {
+				if err != nil {
+					monitorErr <- fmt.Errorf("check ROS master for topic %s: %w", r.config.RosTopic, err)
+					return
+				}
+				continue
 			}
 			if err != nil {
 				monitorErr <- fmt.Errorf(
@@ -297,6 +300,10 @@ func (r *Receiver) isROSSubscriberReady(ctx context.Context) (bool, error) {
 	}
 
 	client := apimaster.NewClient(r.rosConfig.Address, r.config.RosNodeName, &http.Client{})
+	if r.config.WaitForRosSubscriber == "" {
+		_, err := client.GetSystemState()
+		return err == nil, err
+	}
 	return hasTopicSubscriber(client, r.config.RosTopic, r.config.WaitForRosSubscriber)
 }
 

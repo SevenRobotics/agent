@@ -10,5 +10,5 @@ type Publisher[P any] interface {
 	SetAddress(string) Publisher[P]
 	SetKey(string) Publisher[P]
 	Serialize(P) ([]byte, error)
-	Run(<-chan P, chan int, chan error, *sync.WaitGroup)
+	Run(<-chan P, <-chan struct{}, chan error, *sync.WaitGroup)
 }

@@ -1,6 +1,7 @@
 package rmq
 
 import (
+	"errors"
 	"fmt"
 	"go_agent/config"
 	"go_agent/publishers"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/rabbitmq/amqp091-go"
 )
+
+var ErrRabbitMQUnavailable = errors.New("rabbitmq unavailable")
 
 type rmqPublisher[P any] struct {
 	name       string
@@ -36,7 +39,7 @@ func (r *rmqPublisher[P]) Send(msg P) error {
 	return nil
 }
 
-func (r *rmqPublisher[P]) Run(in <-chan P, done chan int, errCh chan error, wg *sync.WaitGroup) {
+func (r *rmqPublisher[P]) Run(in <-chan P, done <-chan struct{}, errCh chan error, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var lastErrTime time.Time
 	for {
@@ -52,7 +55,7 @@ func (r *rmqPublisher[P]) Run(in <-chan P, done chan int, errCh chan error, wg *
 				// Throttle error reporting to prevent log flooding during outages
 				if time.Since(lastErrTime) > 5*time.Second {
 					select {
-					case errCh <- fmt.Errorf("publisher %s Send failed: %v", r.name, err):
+					case errCh <- fmt.Errorf("%w: publisher %s send failed: %v", ErrRabbitMQUnavailable, r.name, err):
 						lastErrTime = time.Now()
 					default:
 					}

@@ -2,9 +2,11 @@ package channel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go_agent/config"
 	"go_agent/iface"
+	"go_agent/publishers/rmq"
 	"go_agent/utils"
 	"log"
 	"time"
@@ -42,7 +44,6 @@ type State struct {
 type Conductor interface {
 	RunPipelines(*sync.WaitGroup)
 	BuildPipelines() error
-	CheckForNewTopics(chan<- [][]string, chan int)
 	Start(genState *utils.GeneratorState, userTopics []string) error
 }
 
@@ -62,16 +63,15 @@ type conductor struct {
 	nodeConfig *config.RosNodeConfig
 
 	rmqConfig config.RMQConfig
-	//used by conductor discovery goroutine to publish new TopicInfo
-	topicDiscoveryChannel chan TopicInfo
-
-	genState *utils.GeneratorState
+	genState  *utils.GeneratorState
 
 	ticker      *time.Ticker
 	builderutil utils.BuilderFinder
 }
 
-const rmqPipelineRetryInterval = 10 * time.Second
+const dependencyRetryInterval = 5 * time.Second
+
+const dependencyHealthClientName = "__telemetry_dependency_health"
 
 func NewConductor(rmqConf config.RMQConfig, nodeConfig config.RosNodeConfig) (Conductor, error) {
 
@@ -124,58 +124,12 @@ func queueName(agentID, topic string) string {
 	return routingKey(agentID, topic) + ".q"
 }
 
-func (c *conductor) CheckForNewTopics(topicStream chan<- [][]string, done chan int) {
-	c.ticker = time.NewTicker(1 * time.Second)
-	defer c.ticker.Stop()
-	defer c.waitGroup.Done()
-
-	for {
-		select {
-		case <-c.ticker.C:
-			topics, err := c.client.GetPublishedTopics("")
-			if err != nil {
-				// Master is likely down, reporting this to self
-				select {
-				case c.errorChannels["self"] <- err:
-				default:
-				}
-				continue
-			}
-			newtopics := [][]string{}
-			for _, topic := range topics {
-				t := strings.Split(topic[0], "/")
-				var topicName string
-				if len(t) > 2 {
-					topicName = strings.ReplaceAll(topic[0], "/", ".")
-					topicName = topicName[1:]
-				} else {
-					topicName = t[1]
-				}
-
-				// Only consider it a "new topic" if it was requested by the user
-				// and we haven't already initialized it.
-				if _, ok := c.internalState.UserRequestedTopics[topic[0]]; ok {
-					if _, ok := c.internalState.Topics[topicName]; !ok {
-						newtopics = append(newtopics, topic)
-					}
-				}
-			}
-
-			if len(newtopics) > 0 {
-				topicStream <- newtopics
-			}
-		case <-done:
-			return
-		}
-	}
-}
-
 func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) error {
 
 	c.genState = genState
 
 	c.errorChannels = map[string]chan error{}
-	c.errorChannels["self"] = make(chan error)
+	c.errorChannels["self"] = make(chan error, 1)
 
 	c.internalState.Builders = map[string]iface.Builder{}
 	c.internalState.Pipelines = map[string]iface.Pipeline{}
@@ -186,85 +140,26 @@ func (c *conductor) Start(genState *utils.GeneratorState, userTopics []string) e
 		c.internalState.UserRequestedTopics[topic] = struct{}{}
 	}
 
-	c.waitForRosMaster()
-	err := c.LoadTopicInfo()
-	if err != nil {
-		return err
-	}
-
-	err = c.ConfigureBuilders()
-	if err != nil {
-		return err
-	}
-
-	err = c.BuildPipelines()
-	if err != nil {
-		return err
-	}
-
-	topicStream := make(chan [][]string)
-	done := make(chan int)
 	c.waitGroup = &sync.WaitGroup{}
-	c.waitGroup.Add(1)
-	go func(topicS chan [][]string, done chan int, conductor *conductor) {
-		defer c.waitGroup.Done()
-		retryTicker := time.NewTicker(rmqPipelineRetryInterval)
-		defer retryTicker.Stop()
 
-		for {
-			select {
-			case topics := <-topicS:
-				log.Printf("New topics discovered %v\n", topics)
-				//load new topics, configure builders, build and run new pipelines
-				if err := c.LoadTopicInfoFrom(topics); err != nil {
-					log.Printf("Error loading topic info: %v\n", err)
-				}
-				if err := c.ConfigureBuilders(); err != nil {
-					log.Printf("Error configuring builders: %v\n", err)
-				}
-				if err := c.BuildPipelines(); err != nil {
-					log.Printf("Error building pipelines: %v\n", err)
-				}
-				c.RunPipelines(c.waitGroup)
-			case err := <-c.errorChannels["self"]:
-				log.Printf("ROS Master disconnected or error scanning: %v\n", err)
-				c.shutdownAllPipelines()
-				c.waitForRosMaster()
-				// After recovery, reset and reload
-				c.resetTopicState()
-				if err := c.LoadTopicInfo(); err != nil {
-					log.Printf("Error loading topic info after recovery: %v\n", err)
-				}
-				if err := c.ConfigureBuilders(); err != nil {
-					log.Printf("Error configuring builders after recovery: %v\n", err)
-				}
-				if err := c.BuildPipelines(); err != nil {
-					log.Printf("Error building pipelines after recovery: %v\n", err)
-				}
-				c.RunPipelines(c.waitGroup)
-			case <-retryTicker.C:
-				if !c.hasPendingPipelines() {
-					continue
-				}
-				log.Printf("Retrying pending RabbitMQ pipelines")
-				if err := c.BuildPipelines(); err != nil {
-					log.Printf("Error retrying pending RabbitMQ pipelines: %v\n", err)
-				}
-				c.RunPipelines(c.waitGroup)
-			case <-done:
-				return
-			}
+	for {
+		c.waitForDependencies()
+		c.resetTopicState()
+
+		if err := c.rebuildConfiguredPipelines(); err != nil {
+			log.Printf("Error rebuilding configured pipelines: %v", err)
+			c.shutdownAllPipelines()
+			time.Sleep(dependencyRetryInterval)
+			continue
 		}
-	}(topicStream, done, c)
-	c.waitGroup.Add(1)
 
-	go c.CheckForNewTopics(topicStream, done)
+		c.drainDependencyErrors()
+		c.RunPipelines(c.waitGroup)
 
-	//start pipelines here
-	c.RunPipelines(c.waitGroup)
-
-	c.waitGroup.Wait()
-	return nil
+		err := c.monitorDependencies()
+		log.Printf("Dependency failure detected, shutting down pipelines: %v", err)
+		c.shutdownAllPipelines()
+	}
 }
 
 func (c *conductor) isRosMasterAvailable() bool {
@@ -272,12 +167,85 @@ func (c *conductor) isRosMasterAvailable() bool {
 	return err == nil
 }
 
-func (c *conductor) waitForRosMaster() {
-	for !c.isRosMasterAvailable() {
-		log.Printf("ROS Master not available at %s, retrying in 5s...", c.nodeConfig.Address)
-		time.Sleep(5 * time.Second)
+func (c *conductor) isRabbitMQAvailable() bool {
+	conn, err := rmq.NewRabbitMQ(c.rmqConfig)
+	if err != nil {
+		return false
 	}
-	log.Printf("ROS Master is online at %s", c.nodeConfig.Address)
+	if !conn.IsConnected() {
+		return false
+	}
+
+	_, err = conn.NewClient(dependencyHealthClientName)
+	return err == nil
+}
+
+func (c *conductor) waitForDependencies() {
+	for {
+		rosAvailable := c.isRosMasterAvailable()
+		rmqAvailable := c.isRabbitMQAvailable()
+		if rosAvailable && rmqAvailable {
+			log.Printf("ROS Master and RabbitMQ are online")
+			return
+		}
+
+		if !rosAvailable {
+			log.Printf("ROS Master not available at %s, retrying in %s...", c.nodeConfig.Address, dependencyRetryInterval)
+		}
+		if !rmqAvailable {
+			log.Printf("RabbitMQ not available, retrying in %s...", dependencyRetryInterval)
+		}
+		time.Sleep(dependencyRetryInterval)
+	}
+}
+
+func (c *conductor) monitorDependencies() error {
+	ticker := time.NewTicker(dependencyRetryInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case err := <-c.errorChannels["self"]:
+			return err
+		case <-ticker.C:
+			if !c.isRosMasterAvailable() {
+				return fmt.Errorf("ROS Master not available at %s", c.nodeConfig.Address)
+			}
+			if !c.isRabbitMQAvailable() {
+				return fmt.Errorf("%w: RabbitMQ health check failed", rmq.ErrRabbitMQUnavailable)
+			}
+		}
+	}
+}
+
+func (c *conductor) drainDependencyErrors() {
+	for {
+		select {
+		case <-c.errorChannels["self"]:
+		default:
+			return
+		}
+	}
+}
+
+func (c *conductor) rebuildConfiguredPipelines() error {
+	if !c.isRosMasterAvailable() {
+		return fmt.Errorf("ROS Master not available at %s", c.nodeConfig.Address)
+	}
+	if !c.isRabbitMQAvailable() {
+		return fmt.Errorf("%w: RabbitMQ not available", rmq.ErrRabbitMQUnavailable)
+	}
+
+	if err := c.LoadTopicInfo(); err != nil {
+		return err
+	}
+	if err := c.ConfigureBuilders(); err != nil {
+		return err
+	}
+	if err := c.BuildPipelines(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *conductor) shutdownAllPipelines() {
@@ -309,10 +277,6 @@ func (c *conductor) LoadTopicInfo() error {
 
 	return c.loadTopicInfo(topics)
 
-}
-
-func (c *conductor) LoadTopicInfoFrom(topics [][]string) error {
-	return c.loadTopicInfo(topics)
 }
 
 func (c *conductor) loadTopicInfo(topics [][]string) error {
@@ -403,6 +367,7 @@ func (c *conductor) ConfigureBuilders() error {
 }
 
 func (c *conductor) BuildPipelines() error {
+	var buildErr error
 	for name, builder := range c.internalState.Builders {
 		conf, ok := c.internalState.Configs[name]
 		if !ok {
@@ -422,13 +387,14 @@ func (c *conductor) BuildPipelines() error {
 		p, err := builder.BuildPipeline(*conf)
 		if err != nil {
 			log.Printf("Failed to build pipeline for %s: %v\n", name, err)
+			buildErr = errors.Join(buildErr, fmt.Errorf("build pipeline %s: %w", name, err))
 			continue
 		}
 		c.internalState.Pipelines[name] = p
 		log.Printf("Pipeline created for %s\n", name)
 		c.errorChannels[name] = c.internalState.Pipelines[name].GetErrorStream()
 	}
-	return nil
+	return buildErr
 }
 
 func (c *conductor) hasPendingPipelines() bool {
@@ -460,6 +426,12 @@ func (c *conductor) RunPipelines(wg *sync.WaitGroup) {
 							return
 						}
 						log.Printf("Error on %s: %v\n", name, err)
+						if errors.Is(err, rmq.ErrRabbitMQUnavailable) || strings.Contains(err.Error(), "failed to initialise subscriber") {
+							select {
+							case c.errorChannels["self"] <- err:
+							default:
+							}
+						}
 					case <-time.After(1 * time.Second):
 						if !p.IsActive() {
 							return

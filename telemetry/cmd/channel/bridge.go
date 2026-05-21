@@ -9,12 +9,12 @@ type Bridge[S any, P any] struct {
 	name      string // message name passing through this bridge
 	input     <-chan S
 	output    chan<- P
-	done      chan int
+	done      <-chan struct{}
 	errCh     chan error
 	converter func(in S) (P, error)
 }
 
-func NewBridge[S any, P any](name string, in <-chan S, out chan<- P, done chan int, errCh chan error) *Bridge[S, P] {
+func NewBridge[S any, P any](name string, in <-chan S, out chan<- P, done <-chan struct{}, errCh chan error) *Bridge[S, P] {
 	return &Bridge[S, P]{
 		name:   name,
 		input:  in,
@@ -59,10 +59,11 @@ func (b *Bridge[S, P]) Run(wg *sync.WaitGroup) {
 			}
 
 			// Protect against sending on a closed channel
-			func() {
-				defer func() { recover() }()
-				b.output <- out
-			}()
+			select {
+			case b.output <- out:
+			case <-b.done:
+				return
+			}
 
 		case <-b.done:
 			return
