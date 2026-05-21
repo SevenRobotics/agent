@@ -11,7 +11,7 @@ receivers:
     wait_for_ros_subscriber: "/cmd_vel_node"
   - name: "tasks"
     enabled: true
-    exchange: ""
+    exchange: "client"
     queue: "robot-tasks-queue"
     consumer: "agent-tasks"
     message_type: "std_msgs/String"

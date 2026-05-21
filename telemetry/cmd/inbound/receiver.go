@@ -203,6 +203,8 @@ func (r *Receiver) handleDelivery(delivery amqp.Delivery, rosPub rosPublisher) {
 		return
 	}
 
+	log.Printf("Inbound receiver %s successfully published message to topic %q", r.config.Name, r.config.RosTopic)
+
 	if !r.config.AutoAck {
 		if err := delivery.Ack(false); err != nil {
 			log.Printf(
